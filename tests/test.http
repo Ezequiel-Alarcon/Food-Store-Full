@@ -1,0 +1,209 @@
+@baseUrl = http://127.0.0.1:8000
+
+### ==========================================
+### FLUJO CASCADA BACKEND
+### Ejecutar de arriba hacia abajo sin cambios
+### Asume base relativamente limpia
+### ==========================================
+
+### ==========================================
+### 1. CATEGORIAS
+### Crear, listar, obtener, actualizar y error
+### ==========================================
+
+### 1.1 Crear Categoria 1 - Root
+POST {{baseUrl}}/categorias/
+Content-Type: application/json
+
+{
+  "nombre": "Bebidas",
+  "descripcion": "Categoria principal",
+  "imagen_url": "http://img/bebidas",
+  "parent_id": null
+}
+
+### 1.2 Crear Categoria 2 - Hija de Bebidas
+POST {{baseUrl}}/categorias/
+Content-Type: application/json
+
+{
+  "nombre": "Cafe",
+  "descripcion": "Subcategoria de bebidas",
+  "imagen_url": "http://img/cafe",
+  "parent_id": 1
+}
+
+### 1.3 Crear Categoria 3 - Otra principal
+POST {{baseUrl}}/categorias/
+Content-Type: application/json
+
+{
+  "nombre": "Panaderia",
+  "descripcion": "Categoria secundaria",
+  "imagen_url": "http://img/panaderia",
+  "parent_id": null
+}
+
+### 1.4 Listar Categorias
+GET {{baseUrl}}/categorias/?offset=0&limit=10
+
+### 1.5 Listar Categorias Principales
+GET {{baseUrl}}/categorias/principales?offset=0&limit=10
+
+### 1.6 Ver Arbol de Categorias
+GET {{baseUrl}}/categorias/arbol
+
+### 1.7 Obtener Categoria 1
+GET {{baseUrl}}/categorias/1
+
+### 1.8 Ver Subcategorias de Categoria 1
+GET {{baseUrl}}/categorias/1/subcategorias?offset=0&limit=10
+
+### 1.9 Actualizar Categoria 2
+PATCH {{baseUrl}}/categorias/2
+Content-Type: application/json
+
+{
+  "descripcion": "Subcategoria de cafe y bebidas calientes"
+}
+
+### Error 1: Intentar generar ciclo
+PATCH {{baseUrl}}/categorias/1
+Content-Type: application/json
+
+{
+  "parent_id": 2
+}
+
+
+### ==========================================
+### 2. INGREDIENTES
+### Crear, listar, obtener, actualizar
+### ==========================================
+
+### 2.1 Crear Ingrediente 1
+POST {{baseUrl}}/ingredientes/
+Content-Type: application/json
+
+{
+  "nombre": "Azucar",
+  "descripcion": "Ingrediente base",
+  "es_alergeno": true
+}
+
+### 2.2 Crear Ingrediente 2
+POST {{baseUrl}}/ingredientes/
+Content-Type: application/json
+
+{
+  "nombre": "Cafe Molido",
+  "descripcion": "Ingrediente principal",
+  "es_alergeno": false
+}
+
+### 2.3 Listar Ingredientes
+GET {{baseUrl}}/ingredientes/?offset=0&limit=10
+
+### 2.4 Listar Ingredientes Alergenos
+GET {{baseUrl}}/ingredientes/alergenos?offset=0&limit=10
+
+### 2.5 Obtener Ingrediente 1
+GET {{baseUrl}}/ingredientes/1
+
+### 2.6 Actualizar Ingrediente 1
+PATCH {{baseUrl}}/ingredientes/1
+Content-Type: application/json
+
+{
+  "descripcion": "Ingrediente dulce actualizado"
+}
+
+
+### ==========================================
+### 3. PRODUCTOS
+### Crear, listar, obtener, actualizar
+### ==========================================
+
+### 3.1 Crear Producto 1 (con categorias e ingredientes)
+POST {{baseUrl}}/productos/
+Content-Type: application/json
+
+{
+  "nombre": "Cafe Latte",
+  "descripcion": "Producto de prueba",
+  "precio_base": 1200,
+  "imagenes_url": ["http://img/latte"],
+  "stock_cantidad": 15,
+  "disponible": true,
+  "categoria_ids": [2],
+  "ingrediente_ids": [1, 2]
+}
+
+### 3.2 Crear Producto 2 (con multiples categorias)
+POST {{baseUrl}}/productos/
+Content-Type: application/json
+
+{
+  "nombre": "Cafe Negro con Medialuna",
+  "descripcion": "Combo simple",
+  "precio_base": 900,
+  "imagenes_url": ["http://img/negro"],
+  "stock_cantidad": 20,
+  "disponible": true,
+  "categoria_ids": [2, 3]
+}
+
+### 3.3 Listar Productos
+GET {{baseUrl}}/productos/?offset=0&limit=10
+
+### 3.4 Obtener Producto 1
+GET {{baseUrl}}/productos/1
+
+### 3.5 Actualizar Producto 1 (cambiar relaciones)
+PATCH {{baseUrl}}/productos/1
+Content-Type: application/json
+
+{
+  "precio_base": 1350,
+  "stock_cantidad": 12,
+  "categoria_ids": [1, 2],
+  "ingrediente_ids": [2]
+}
+
+### 3.6 Ver Productos por Categoria 3
+GET {{baseUrl}}/productos/categoria/3?offset=0&limit=10
+
+### Error 2: Crear producto sin categoria (debe fallar)
+POST {{baseUrl}}/productos/
+Content-Type: application/json
+
+{
+  "nombre": "Invalido",
+  "precio_base": 100,
+  "categoria_ids": []
+}
+
+### ==========================================
+### 4. LIMPIEZA
+### ==========================================
+
+### 4.1 Eliminar Producto 2
+DELETE {{baseUrl}}/productos/2
+
+### 4.2 Eliminar Producto 1
+DELETE {{baseUrl}}/productos/1
+
+### 4.3 Eliminar Ingrediente 2
+DELETE {{baseUrl}}/ingredientes/2
+
+### 4.4 Eliminar Ingrediente 1
+DELETE {{baseUrl}}/ingredientes/1
+
+### 4.5 Eliminar Categoria 3
+DELETE {{baseUrl}}/categorias/3
+
+### 4.6 Eliminar Categoria 2
+DELETE {{baseUrl}}/categorias/2
+
+### 4.7 Eliminar Categoria 1
+DELETE {{baseUrl}}/categorias/1
