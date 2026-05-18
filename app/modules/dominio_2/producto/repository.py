@@ -2,7 +2,7 @@ from typing import Any, Optional, cast
 
 from sqlmodel import Session, select, func
 from app.core.repository import BaseRepository
-from app.modules.producto.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
 
 
 class ProductoRepository(BaseRepository[Producto]):

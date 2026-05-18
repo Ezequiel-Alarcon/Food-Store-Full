@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Optional
 
-from app.modules.producto.models import ProductoCategoria
+from app.modules.dominio_2.producto.models import ProductoCategoria
 from ..base.models import BaseModel
 from sqlmodel import Field, Relationship
 

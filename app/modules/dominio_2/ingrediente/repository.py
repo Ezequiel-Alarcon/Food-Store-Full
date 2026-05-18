@@ -1,6 +1,6 @@
 from sqlmodel import Session, func, select
 from app.core.repository import BaseRepository
-from app.modules.ingrediente.models import Ingrediente
+from app.modules.dominio_2.ingrediente.models import Ingrediente
 
 
 class IngredienteRepository(BaseRepository[Ingrediente]):

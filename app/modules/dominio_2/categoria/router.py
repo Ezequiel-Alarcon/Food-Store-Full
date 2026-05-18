@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlmodel import Session
 from app.core.database import get_session
-from app.modules.categoria.schemas import (
+from app.modules.dominio_2.categoria.schemas import (
     CategoriaCreate,
     CategoriaList,
     CategoriaRead,
@@ -11,8 +11,8 @@ from app.modules.categoria.schemas import (
     CategoriaTreeList,
     CategoriaUpdate
 )
-from app.modules.categoria.unit_of_work import CategoriaUnitOfWork
-from app.modules.categoria.service import CategoriaService
+from app.modules.dominio_2.categoria.unit_of_work import CategoriaUnitOfWork
+from app.modules.dominio_2.categoria.service import CategoriaService
 
 router = APIRouter()
 

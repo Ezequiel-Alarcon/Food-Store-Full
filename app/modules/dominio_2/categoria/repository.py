@@ -1,6 +1,6 @@
 from sqlmodel import Session, select, func
 from app.core.repository import BaseRepository
-from app.modules.categoria.models import Categoria
+from app.modules.dominio_2.categoria.models import Categoria
 
 
 class CategoriaRepository(BaseRepository[Categoria]):

@@ -3,15 +3,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlmodel import Session
 from app.core.database import get_session
-from app.modules.ingrediente.schemas import (
+from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteCreate,
     IngredienteList,
     IngredienteRead,
     IngredienteReadFull,
     IngredienteUpdate
 )
-from app.modules.ingrediente.unit_of_work import IngredienteUnitOfWork
-from app.modules.ingrediente.service import IngredienteService
+from app.modules.dominio_2.ingrediente.unit_of_work import IngredienteUnitOfWork
+from app.modules.dominio_2.ingrediente.service import IngredienteService
 
 router = APIRouter()
 

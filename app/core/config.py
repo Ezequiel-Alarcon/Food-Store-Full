@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Optional
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,21 +6,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = None
 
-    # Configuración para cargar variables de entorno desde un archivo .env
-    model_config = SettingsConfigDict(
-        env_file=str(Path(__file__).parent.parent.parent / ".env"),
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
-    
-    # Validador para corregir el formato de DATABASE_URL si es necesario
+    SECRET_KEY: Optional[str] = None
+    ALGORITHM: Optional[str] = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: Optional[int] = 30
+
     @model_validator(mode="after")
-    def fix_database_url(self) -> "Settings":
-        if self.DATABASE_URL and self.DATABASE_URL.startswith("postgres://"):
-            self.DATABASE_URL = self.DATABASE_URL.replace(
-                "postgres://", "postgresql+psycopg2://", 1
-            )
+    def fix_database_url(self):
+        if self.DATABASE_URL and self.DATABASE_URL.startswith("postgresql://"):
+            self.DATABASE_URL = self.DATABASE_URL.replace("postgresql://","postgresql+psycopg://", 1)
         return self
 
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 settings = Settings()
