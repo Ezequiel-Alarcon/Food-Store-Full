@@ -1,15 +1,15 @@
 from fastapi import HTTPException
 from typing import cast
 
-from app.modules.ingrediente.models import Ingrediente
-from app.modules.ingrediente.schemas import (
+from app.modules.dominio_2.ingrediente.models import Ingrediente
+from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteCreate,
     ProductoBasicRead,
     IngredienteRead,
     IngredienteReadFull,
     IngredienteUpdate,
 )
-from app.modules.ingrediente.unit_of_work import IngredienteUnitOfWork
+from app.modules.dominio_2.ingrediente.unit_of_work import IngredienteUnitOfWork
 
 
 class IngredienteService:

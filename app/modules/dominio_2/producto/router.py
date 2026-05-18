@@ -3,14 +3,14 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlmodel import Session
 from app.core.database import get_session
-from app.modules.producto.schemas import (
+from app.modules.dominio_2.producto.schemas import (
     ProductoCreate,
     ProductoList,
     ProductoReadFull,
     ProductoUpdate
 )
-from app.modules.producto.unit_of_work import ProductoUnitOfWork
-from app.modules.producto.service import ProductoService
+from app.modules.dominio_2.producto.unit_of_work import ProductoUnitOfWork
+from app.modules.dominio_2.producto.service import ProductoService
 
 router = APIRouter()
 

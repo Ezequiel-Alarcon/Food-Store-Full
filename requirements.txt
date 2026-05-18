@@ -1,6 +1,14 @@
 fastapi[standard]
-uvicorn
 sqlmodel
-psycopg2-binary
-python-dotenv
+psycopg[binary]==3.3.3
+python-dotenv==1.2.2
+alembic
 pydantic-settings
+pytest
+httpx
+
+# --- Librerías de Seguridad ---
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.20

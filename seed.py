@@ -6,9 +6,9 @@ Crea datos de prueba para demostrar el flujo completo del Dominio 3.
 from decimal import Decimal
 from sqlmodel import Session, SQLModel
 from app.core.database import engine
-from app.modules.categoria.models import Categoria
-from app.modules.ingrediente.models import Ingrediente
-from app.modules.producto.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.dominio_2.categoria.models import Categoria
+from app.modules.dominio_2.ingrediente.models import Ingrediente
+from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
 
 
 def seed():

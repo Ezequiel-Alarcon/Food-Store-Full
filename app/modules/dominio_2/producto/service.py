@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from typing import Optional, cast
 
-from app.modules.producto.models import Producto, ProductoCategoria, ProductoIngrediente
-from app.modules.producto.schemas import (
+from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.dominio_2.producto.schemas import (
     CategoriaBasicRead,
     IngredienteBasicRead,
     ProductoCreate,
@@ -10,7 +10,7 @@ from app.modules.producto.schemas import (
     ProductoUpdate,
 )
 
-from app.modules.producto.unit_of_work import ProductoUnitOfWork
+from app.modules.dominio_2.producto.unit_of_work import ProductoUnitOfWork
 
 class ProductoService:
     def __init__(self, uow: ProductoUnitOfWork) -> None:
