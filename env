@@ -1,0 +1,22 @@
+# ── PostgreSQL ────────────────────────────────────────────────────────────
+POSTGRES_USER=foodstore
+POSTGRES_PASSWORD=foodstore_pass
+POSTGRES_DB=foodstore_db
+DATABASE_URL=postgresql://foodstore:foodstore_pass@db:5432/foodstore_db
+
+# ── Backend ──────────────────────────────────────────────────────────────
+SECRET_KEY=dev-secret-key-change-in-production-min-64-chars
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=7
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+MP_ACCESS_TOKEN=TEST-8970056330002466-051413-e31113dc6433975ace8906fe70a15a05-360753336
+MP_PUBLIC_KEY=TEST-44b7d81d-775a-4361-b56d-79b7ef242ddf
+MP_NOTIFICATION_URL=https://72b0-2802-8012-4136-6501-40c9-f21-624e-a379.ngrok-free.app
+MP_WEBHOOK_SECRET=
+DEBUG=True
+ENVIRONMENT=development
+
+# ── Frontend ─────────────────────────────────────────────────────────────
+VITE_API_URL=http://localhost:8000/api/v1
+VITE_MP_PUBLIC_KEY=TEST-44b7d81d-775a-4361-b56d-79b7ef242ddf
+VITE_BACKEND_URL=http://backend:8000

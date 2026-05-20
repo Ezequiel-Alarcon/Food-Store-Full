@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, ClassVar, List
 from pydantic import field_validator
-from ..base.models import BaseModel
 from sqlmodel import Field, Relationship, Column, Integer, ForeignKey, SQLModel, ARRAY, String
 from sqlalchemy import CheckConstraint, Numeric
+from app.core.minxins.auditable_mixin import UniqueAuditableMixin
+from sqlalchemy.orm import declared_attr
 
 
 if TYPE_CHECKING:
@@ -47,14 +48,24 @@ class ProductoIngrediente(SQLModel, table=True):
         nullable=False
     )
 
-class Producto(BaseModel, table=True):
+class Producto(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "productos"
 
     # Constraint a nivel de BD: última línea de defensa
-    __table_args__ = (
-        CheckConstraint("precio_base >= 0", name="ck_producto_precio_no_negativo"),
-    )
+    # __table_args__ = (
+    #     CheckConstraint("precio_base >= 0", name="ck_producto_precio_no_negativo"),
+    # )
 
+    _unique_fields: ClassVar[List[str]] = ["nombre"]
+
+    @declared_attr
+    def __table_args__(cls):
+        parent_args = super().__table_args__
+        return parent_args + (
+            CheckConstraint("precio_base >= 0", name="ck_producto_precio_no_negativo"),
+        )
+
+    id: Optional[int] = Field(default=None, primary_key=True)
     #no puede ser nulo
     nombre: str = Field(..., description="Nombre del producto", max_length=150)
     descripcion: Optional[str] = Field(default=None, description="Descripción del producto")
