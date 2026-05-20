@@ -65,7 +65,8 @@ class UsuarioService:
                     )
                 objetos_roles.append(rol)
             
-            return self._crear_usuario_core(user_in, objetos_roles)
+            return self._core(user_in, objetos_roles)
+            return super.crear(isinstance)
         
 
 

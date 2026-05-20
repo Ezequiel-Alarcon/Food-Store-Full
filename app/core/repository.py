@@ -3,6 +3,7 @@ import uuid
 from sqlmodel import Session, SQLModel, func, select
 from sqlmodel.sql._expression_select_cls import SelectOfScalar
 from app.core.enums import EstadoFiltro
+from datetime import datetime, timezone
 
 T = TypeVar("T", bound=SQLModel)
 
@@ -69,5 +70,9 @@ class BaseRepository(Generic[T]):
 
     #==========Delete===========
     def delete(self, instance: T) -> None:
-        self.session.delete(instance)
-        self.session.flush()
+        if hasattr(self.model, "deleted_at"):
+            setattr(instance,"deleted_at",datetime.now(timezone.utc))
+            self.update(instance)
+        else:
+            self.session.delete(instance)
+            self.session.flush()

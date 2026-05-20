@@ -1,8 +1,10 @@
 import uuid
-from typing import Optional, List
+from typing import Optional, List, ClassVar
 from datetime import datetime, timezone
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy import Column, CHAR
+
+from app.core.minxins.auditable_mixin import UniqueAuditableMixin
 
 # ==========================================
 # 1. TABLAS INTERMEDIAS (Link Models)
@@ -36,24 +38,21 @@ class Rol(SQLModel, table=True):
     usuarios: List["Usuario"] = Relationship(back_populates="roles", link_model=UsuarioRol)
 
 
-class Usuario(SQLModel, table=True):
+class Usuario(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "usuario"
     
+    _unique_fields: ClassVar[List[str]] = ["email"]
+
     # id: Optional[int] = Field(default=None, primary_key=True)
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     nombre: str = Field(max_length=80)
     apellido: str = Field(max_length=80)
-    email: str = Field(unique=True, index=True, max_length=254)
+    email: str = Field(max_length=254)
     celular: Optional[str] = Field(default=None, max_length=20)
     
     # Se fuerza el uso de CHAR(60) exacto para el hash de bcrypt
     password_hash: str = Field(sa_column=Column(CHAR(60), nullable=False))
 
-    # Audit (Reemplaza a 'disabled')
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    deleted_at: Optional[datetime] = None
-    
     # Relaciones
     roles: List[Rol] = Relationship(back_populates="usuarios", link_model=UsuarioRol)
     refresh_tokens: List["RefreshToken"] = Relationship(back_populates="usuario")

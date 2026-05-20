@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, List, ClassVar
+from sqlmodel import SQLModel
 
 from app.modules.dominio_2.producto.models import ProductoCategoria
-from ..base.models import BaseModel
+from app.core.minxins.auditable_mixin import UniqueAuditableMixin
+
 from sqlmodel import Field, Relationship
 
 # Evitar las importaciones circulares
@@ -9,20 +11,23 @@ if TYPE_CHECKING:
     from ..producto.models import Producto
 
 
-class Categoria(BaseModel, table=True):
+class Categoria(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "categorias"
-    
-    parent_id: int | None = Field(
+
+    _unique_fields: ClassVar[List[str]] = ["nombre"]
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    parent_id: Optional[int] = Field(
         default=None,
         foreign_key="categorias.id",
         description="FK a categoría padre"
     )
     
-    nombre: str = Field(..., unique=True, max_length=100, description="Nombre de la categoría")
+    nombre: str = Field(..., max_length=100, description="Nombre de la categoría")
     
-    descripcion: str | None = Field(default=None, description="Descripción")
+    descripcion: Optional[str] = Field(default=None, description="Descripción")
     
-    imagen_url: str = Field(..., description="URL de imagen de la categoría")
+    imagen_url: Optional[str] = Field(..., description="URL de imagen de la categoría")
 
     parent: Optional["Categoria"] = Relationship(
         back_populates="children",
@@ -34,7 +39,7 @@ class Categoria(BaseModel, table=True):
     )
 
     # Relación con productos a través de la tabla intermedia
-    productos: list["Producto"] = Relationship(
+    productos: List["Producto"] = Relationship(
         back_populates="categorias",
         link_model=ProductoCategoria
     )
