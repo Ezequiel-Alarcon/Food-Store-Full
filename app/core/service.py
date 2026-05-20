@@ -21,8 +21,6 @@ Aplicacion del service generico en los services particulares
 class HeroService(base_service[Hero, HeroCreate, HeroUpdate, HeroUnitOfWork]):
     def __init__(self, session: Session):
         super().__init__(session=session,uow_class=HeroUnitOfWork,repo_name="heroes", model_class=Hero)
-
-
 """
 
 
