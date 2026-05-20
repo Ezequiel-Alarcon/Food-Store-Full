@@ -79,9 +79,10 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
     def delete(self, item_id: int | str):
         with self.uow:
             item_db = self._get_or_404(item_id)
+            self.repo.delete(item_db)
+        return {"message": f"{self.model.__name__} eliminado/a correctamente"}
+        #     if hasattr(item_db, "deleted_at"):
+        #         item_db.deleted_at = datetime.now(timezone.utc)
+        #         self.repo.update(item_db)
 
-            if hasattr(item_db, "deleted_at"):
-                item_db.deleted_at = datetime.now(timezone.utc)
-                self.repo.update(item_db)
-
-        return {"message": f"{self.model_class.__name__} eliminado/a correctamente"}
+        # return {"message": f"{self.model_class.__name__} eliminado/a correctamente"}
