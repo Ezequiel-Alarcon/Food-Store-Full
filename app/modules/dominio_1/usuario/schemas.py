@@ -32,7 +32,9 @@ class UserPublic(BaseModel):
     apellido: str
     email: str
     celular: Optional[str] = None
-    roles: List[RolPublic] = [] 
+
+class UserPublicAdminPanel(UserPublic):
+    rol: RolPublic
     
 
 # --- Respuesta del Login ---

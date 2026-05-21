@@ -25,9 +25,9 @@ class HeroService(base_service[Hero, HeroCreate, HeroUpdate, HeroUnitOfWork]):
 
 
 class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWType]):
-    def __init__(self, session: Session, uow_class: UoWType, repo_name: str, model_class: Type[ModelType]):
+    def __init__(self, session: Session, uow_instance: UoWType, repo_name: str, model_class: Type[ModelType]):
         self.session = session
-        self.uow = uow_class
+        self.uow = uow_instance
         self.repo = repo_name
         self.model = model_class
 
@@ -44,7 +44,7 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
     def _get_or_404(self, item_id) -> ModelType:
         item = self.repo.get_by_id(item_id)
         if not item or getattr(item, "deleted_at", None) is not None:
-            raise HTTPException(status_code=404, detail=f"{self.model_class.__name__} not found")
+            raise HTTPException(status_code=404, detail=f"{self.model_class.__name__} no encontrado/a")
         return item
 
     def get_by_id(self, item_id: int | str) -> ModelType:
@@ -57,32 +57,20 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
             self.repo.add(nuevo_item)
             return nuevo_item
         
-    def update(self, item_id: int | str, item_in: UpdateSchemaType) -> ModelType:
-        with self.uow:
-            item_db = self.get_by_id(item_id)
+    def _apply_update_fields(self, item_db: ModelType, item_in: UpdateSchemaType) -> ModelType:
+        update_data = item_in.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(item_db, key, value)
 
-            update_data = item_in.model_dump(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(item_db, key, value)
+        if hasattr(item_db, "updated_at"):
+            item_db.updated_at = datetime.now(timezone.utc)
+            
+        return item_db
 
-            if hasattr(item_db, "updated_at"):
-                item_db.updated_at = datetime.now(timezone.utc)
 
-            self.repo.update(item_db)
-            return item_db
-        
-
-    """
-        Se tiene que arreglar para que coincida con el
-        Repositorio generico
-    """
     def delete(self, item_id: int | str):
         with self.uow:
             item_db = self._get_or_404(item_id)
             self.repo.delete(item_db)
         return {"message": f"{self.model.__name__} eliminado/a correctamente"}
-        #     if hasattr(item_db, "deleted_at"):
-        #         item_db.deleted_at = datetime.now(timezone.utc)
-        #         self.repo.update(item_db)
-
-        # return {"message": f"{self.model_class.__name__} eliminado/a correctamente"}
+    
