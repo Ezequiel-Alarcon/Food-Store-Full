@@ -14,7 +14,16 @@ class UserCreate(BaseModel):
     apellido: str = Field(..., max_length=80)
     email: EmailStr
     celular: Optional[str] = Field(default=None, max_length=20)
-    password: str = Field(min_length=8)# poner limite
+    password: str = Field(min_length=8)
+ 
+class UserUpdateClient(BaseModel):
+    nombre: Optional[str] = Field(default=None, max_length=80)
+    apellido: Optional[str] = Field(default=None, max_length=80)
+    celular: Optional[str] = Field(default=None, max_length=20)
+
+class UserUpdateAdmin(UserUpdateClient):
+    roles_codigos: Optional[List[str]] = None
+
     
 # --- Salida de datos (GET /me, Respuesta de Login/Register) ---
 class UserPublic(BaseModel):

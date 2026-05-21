@@ -1,18 +1,31 @@
 import hashlib
+import uuid
 from app.core.config import settings
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from typing import List
+from typing import List, Optional
 
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork
-from app.modules.dominio_1.usuario.schemas import UserCreate, Token
+from app.modules.dominio_1.usuario.schemas import UserCreate, UserUpdateAdmin, UserUpdateClient, Token
 from app.modules.dominio_1.usuario.models import Rol,Usuario, RefreshToken
 from app.core.security import hash_password, verify_password, create_access_token
+from app.core.enums import EstadoFiltro
 
 class UsuarioService:
     def __init__(self, uow: UsuarioUnitOfWork):
         self.uow = uow
+
+    def _get_user_of_404(self, usuario_id: uuid.UUID) -> Usuario:
+        user = self.uow.usuarios.get_by_id(usuario_id)
+        
+        if not user or user.deleted_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado"
+            )
+        
+        return user
 
     def _crear_usuario_core(self, user_in: UserCreate, roles: List[Rol]) -> Usuario:
         """
@@ -36,6 +49,18 @@ class UsuarioService:
         )
         
         return self.uow.usuarios.add(nuevo_usuario)
+    
+    def _update_user_core(self, usuario_id: uuid.UUID, data_dict: dict, nuevos_roles: Optional[List[Rol]] = None) -> Usuario:
+        user = self._get_user_of_404(usuario_id)
+
+        for key, value in data_dict.items():
+            setattr(user, key, value)
+
+        if nuevos_roles is not None:
+            user.roles = nuevos_roles
+
+        return user
+
 
     # ==========================================
     # --- FLUJOS PÚBLICOS Y ADMINISTRATIVOS ---
@@ -52,6 +77,7 @@ class UsuarioService:
                 )
             return self._crear_usuario_core(user_in, [rol_default])
 
+
     def create_user_admin(self, user_in: UserCreate, roles_codigos: List[str]) -> Usuario:
         """Flujo para Admin: permite especificar una lista de códigos de roles."""
         with self.uow:
@@ -65,8 +91,7 @@ class UsuarioService:
                     )
                 objetos_roles.append(rol)
             
-            return self._core(user_in, objetos_roles)
-            return super.crear(isinstance)
+            return self._crear_usuario_core(user_in, objetos_roles)
         
 
 
@@ -110,27 +135,47 @@ class UsuarioService:
                 token_type="bearer",
                 expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
             )
+        
+
+    def update_profile(self, usuario_id: uuid.UUID, user_in: UserUpdateClient) -> Usuario:
+        with self.uow:
+            data = user_in.model_dump(exclude_unset=True)
+            return self._update_user_core(usuario_id, data_dict=data)
+    
+
+    def update_user_by_admin(self, user_id: uuid.UUID, user_in: UserUpdateAdmin) -> Usuario:
+        with self.uow as uow:
+            data = user_in.model_dump(exclude_unset=True)
+
+            roles_codigos = data.pop("roles_codigos", None)
+
+            objetos_roles = None
+            if roles_codigos is not None:
+                objetos_roles = []
+                for codigo in roles_codigos:
+                    rol = uow.roles.get_by_id(codigo)
+                    if not rol:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"El codigo de rol {codigo} no es valido"
+                        )
+                    objetos_roles.append(rol)
+
+            return self._update_user_core(user_id, data_dict=data, nuevos_roles=objetos_roles)
+
 
     # ==========================================
     # --- FLUJO DE ADMIN (Privado) ---
     # ==========================================
 
-    def obtener_todos_los_usuarios(self):
-        """Lista usuarios omitiendo los que tienen borrado lógico."""
+    def get_all_users(self,offset: int = 0, limit: int = 20, rol_codigo: Optional[str] = None):
         with self.uow as uow:
-            return uow.usuarios.get_all_active()
+            return uow.usuarios.get_paged_users(offset=offset, limit=limit, rol_codigo=rol_codigo, state = EstadoFiltro.ACTIVO)
         
 
-    def desactivar_usuario(self, usuario_id: int):
-        """Aplica el borrado lógico (Baneo)."""
+    def desactivar_usuario(self, user_id: uuid.UUID):
+        """Aplica el borrado lógico."""
         with self.uow as uow:
-            user = uow.usuarios.get_by_id(usuario_id)
-            if not user:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, 
-                    detail="Usuario no encontrado"
-                )
-            
-            user.deleted_at = datetime.now(timezone.utc)
-            uow.commit()
-            return {"mensaje": f"Usuario {user.email} desactivado correctamente"}
+            user = self._get_user_of_404(user_id)
+            uow.usuarios.delete(user)
+            return {"mensaje": f"Usuario {user.email} eliminado correctamente"}
