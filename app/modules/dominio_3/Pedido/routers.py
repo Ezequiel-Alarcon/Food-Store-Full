@@ -1,3 +1,4 @@
+from app.modules.dominio_3.Pedido.schemas import PedidoCambioEstado
 from app.modules.dominio_3.HistorialEstadoPedido.schemas import HistorialEstadoPedidoRead
 from fastapi import APIRouter, Depends, status
 from sqlmodel import Session
@@ -29,3 +30,13 @@ def obtener_historial_pedido(
     service: PedidoService = Depends(get_pedido_service),
 ) -> list[HistorialEstadoPedidoRead]:
     return service.obtener_historial_pedido(pedido_id)
+
+
+@router.patch("/{pedido_id}/estado", response_model=PedidoReadFull)
+def cambiar_estado_pedido(
+    pedido_id: int,
+    data: PedidoCambioEstado,
+    usuario_id: int,
+    service: PedidoService = Depends(get_pedido_service),
+) -> PedidoReadFull:
+    return service.cambiar_estado_pedido(pedido_id, data, usuario_id)
