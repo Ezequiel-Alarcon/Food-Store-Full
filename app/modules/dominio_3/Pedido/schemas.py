@@ -4,12 +4,10 @@ from datetime import datetime
 
 from sqlmodel import SQLModel, Field
 from pydantic import model_validator
-
 from app.modules.dominio_3.DetallePedido.schemas import (
     DetallePedidoCreate,
     DetallePedidoRead,
 )
-
 
 class PedidoCreate(SQLModel):
     direccion_id: Optional[int] = Field(
