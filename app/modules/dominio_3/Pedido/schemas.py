@@ -3,7 +3,7 @@ from typing import Optional, List
 from datetime import datetime
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import model_validator
+from pydantic import model_validator
 
 from app.modules.dominio_3.DetallePedido.schemas import (
     DetallePedidoCreate,
@@ -47,19 +47,9 @@ class PedidoCambioEstado(SQLModel):
             raise ValueError("El motivo es obligatorio si el estado_hacia es CANCELADO")
         return self
 
-class HistorialEstadoPedidoRead(SQLModel):
-    id: int
-    pedido_id: int
-    estado_desde: Optional[str] = None
-    estado_hacia: str
-    usuario_id: Optional[int] = None
-    motivo: Optional[str] = None
-    created_at: datetime
 
 class PedidoRead(SQLModel):
     id: int
-    usuario_id: int
-    direccion_id: Optional[int] = None
     estado_codigo: str
     forma_pago_codigo: str
     subtotal: Decimal
@@ -68,13 +58,10 @@ class PedidoRead(SQLModel):
     total: Decimal
     notas: Optional[str] = None
     created_at: datetime
-    updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
 class PedidoReadFull(PedidoRead):
     items: List[DetallePedidoRead] = Field(default_factory=list)
-    historial: List[HistorialEstadoPedidoRead] = Field(default_factory=list)
-
+    
 class PedidoList(SQLModel):
     data: List[PedidoRead]
     total: int
