@@ -1,3 +1,4 @@
+from app.core import unit_of_work
 from decimal import Decimal
 from fastapi import HTTPException
 from app.modules.dominio_3.DetallePedido.models import DetallePedido
@@ -250,3 +251,26 @@ class PedidoService:
                 self._armar_pedido_read_full(uow, pedido)
                 for pedido in pedidos
             ]   
+
+    def descontar_stock_del_pedido(self, uow, pedido_id: int) -> None:
+        detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
+        for detalle in detalles:
+            producto = uow.productos.get_by_id(detalle.producto_id)
+            if producto is None or getattr(producto, "deleted_at", None) is not None:
+                raise HTTPException(status_code=404, detail="Producto no encontrado")
+            if producto.stock_cantidad < detalle.cantidad:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"No hay stock suficiente para {producto.nombre}",
+                )
+            producto.stock_cantidad -= detalle.cantidad
+            uow.productos.update(producto)
+
+    def restaurar_stock_del_pedido(self, uow, pedido_id: int) -> None:
+        detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
+        for detalle in detalles:
+            producto = uow.productos.get_by_id(detalle.producto_id)
+            if producto is None or getattr(producto, "deleted_at", None) is not None:
+                continue
+            producto.stock_cantidad += detalle.cantidad
+            uow.productos.update(producto)
