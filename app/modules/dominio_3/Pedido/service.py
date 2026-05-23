@@ -1,3 +1,4 @@
+from app.core import unit_of_work
 from decimal import Decimal
 from fastapi import HTTPException
 from app.modules.dominio_3.DetallePedido.models import DetallePedido
@@ -152,7 +153,7 @@ class PedidoService:
             return self._armar_pedido_read_full(uow, pedido)
     def _obtener_pedido_o_404(self, uow, pedido_id: int) -> Pedido:
         pedido = uow.pedidos.get_by_id(pedido_id)
-        if pedido is None:
+        if pedido is None or pedido.deleted_at is not None:
             raise HTTPException(status_code=404, detail="Pedido no encontrado")
         return pedido
     def _validar_forma_pago(self, uow, codigo: str):
@@ -217,6 +218,7 @@ class PedidoService:
         )
         uow.historial.add(historial)
     def _armar_pedido_read_full(self, uow, pedido: Pedido) -> PedidoReadFull:
+
         detalles = uow.detalles.get_all_by_pedido_id(pedido.id)
         detalles_read = [
             DetallePedidoRead.model_validate(detalle)
@@ -234,3 +236,41 @@ class PedidoService:
             created_at=pedido.created_at,
             items=detalles_read,
         )
+
+    def eliminar_pedido(self, pedido_id: int) -> None:
+        with self._uow as uow:
+            pedido = self._obtener_pedido_o_404(uow, pedido_id)
+            if pedido.deleted_at is not None:
+                raise HTTPException(status_code=404, detail="Pedido no encontrado")
+            uow.pedidos.delete(pedido)
+
+    def obtener_pedidos_por_usuario(self, usuario_id: int) -> list[PedidoReadFull]:
+        with self._uow as uow:
+            pedidos = uow.pedidos.get_all_by_usuario_id(usuario_id)
+            return [
+                self._armar_pedido_read_full(uow, pedido)
+                for pedido in pedidos
+            ]   
+
+    def descontar_stock_del_pedido(self, uow, pedido_id: int) -> None:
+        detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
+        for detalle in detalles:
+            producto = uow.productos.get_by_id(detalle.producto_id)
+            if producto is None or getattr(producto, "deleted_at", None) is not None:
+                raise HTTPException(status_code=404, detail="Producto no encontrado")
+            if producto.stock_cantidad < detalle.cantidad:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"No hay stock suficiente para {producto.nombre}",
+                )
+            producto.stock_cantidad -= detalle.cantidad
+            uow.productos.update(producto)
+
+    def restaurar_stock_del_pedido(self, uow, pedido_id: int) -> None:
+        detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
+        for detalle in detalles:
+            producto = uow.productos.get_by_id(detalle.producto_id)
+            if producto is None or getattr(producto, "deleted_at", None) is not None:
+                continue
+            producto.stock_cantidad += detalle.cantidad
+            uow.productos.update(producto)

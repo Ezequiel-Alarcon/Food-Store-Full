@@ -8,6 +8,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         super().__init__(session, Pedido)
 
     def get_all_by_usuario_id(self, usuario_id: int) -> list[Pedido]:
-        statement = select(Pedido).where(Pedido.usuario_id == usuario_id).order_by(Pedido.created_at.desc())
+        statement = select(Pedido).where(Pedido.usuario_id == usuario_id).where(Pedido.deleted_at == None).order_by(Pedido.created_at.desc())
         return list(self.session.exec(statement).all())
+    
     
