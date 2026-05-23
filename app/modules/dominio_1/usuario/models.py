@@ -1,4 +1,3 @@
-import uuid
 from typing import Optional, List, ClassVar
 from datetime import datetime, timezone
 from sqlmodel import SQLModel, Field, Relationship
@@ -14,11 +13,11 @@ class UsuarioRol(SQLModel, table=True):
     __tablename__ = "usuario_rol"
     
     # PK Compuesta
-    usuario_id: uuid.UUID = Field(foreign_key="usuario.id", primary_key=True)
+    usuario_id: int = Field(foreign_key="usuario.id", primary_key=True)
     rol_codigo: str = Field(foreign_key="rol.codigo", primary_key=True)
 
     # Atributos extra de la tabla intermedia según UML
-    asignado_por_id: Optional[uuid.UUID] = Field(default=None, foreign_key="usuario.id")
+    asignado_por_id: Optional[int] = Field(default=None, foreign_key="usuario.id")
     expires_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -44,7 +43,7 @@ class Usuario(UniqueAuditableMixin, SQLModel, table=True):
     _unique_fields: ClassVar[List[str]] = ["email"]
 
     # id: Optional[int] = Field(default=None, primary_key=True)
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     nombre: str = Field(max_length=80)
     apellido: str = Field(max_length=80)
     email: str = Field(max_length=254)
@@ -69,7 +68,7 @@ class RefreshToken(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     # usuario_id: int = Field(foreign_key="usuario.id")
-    usuario_id: uuid.UUID = Field(foreign_key="usuario.id")
+    usuario_id: int = Field(foreign_key="usuario.id", nullable=False)
     
     token_hash: str = Field(sa_column=Column(CHAR(64), unique=True, nullable=False))
     expires_at: datetime
@@ -84,7 +83,7 @@ class DireccionEntrega(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     # usuario_id: int = Field(foreign_key="usuario.id")
-    usuario_id: uuid.UUID = Field(foreign_key="usuario.id")
+    usuario_id: int = Field(foreign_key="usuario.id", nullable=False)
     
     alias: Optional[str] = Field(default=None, max_length=50)
     linea1: str
