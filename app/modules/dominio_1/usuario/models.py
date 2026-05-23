@@ -34,7 +34,7 @@ class Rol(SQLModel, table=True):
     descripcion: Optional[str] = None
     
     # Relaciones (N:M)
-    usuarios: List["Usuario"] = Relationship(back_populates="roles", link_model=UsuarioRol)
+    #usuarios: List["Usuario"] = Relationship(back_populates="roles", link_model=UsuarioRol)
 
 
 class Usuario(UniqueAuditableMixin, SQLModel, table=True):
@@ -53,7 +53,7 @@ class Usuario(UniqueAuditableMixin, SQLModel, table=True):
     password_hash: str = Field(sa_column=Column(CHAR(60), nullable=False))
 
     # Relaciones
-    roles: List[Rol] = Relationship(back_populates="usuarios", link_model=UsuarioRol)
+    #roles: List[Rol] = Relationship(back_populates="usuarios", link_model=UsuarioRol)
     refresh_tokens: List["RefreshToken"] = Relationship(back_populates="usuario")
     direcciones: List["DireccionEntrega"] = Relationship(back_populates="usuario")
 

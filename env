@@ -2,8 +2,7 @@
 POSTGRES_USER=foodstore
 POSTGRES_PASSWORD=foodstore_pass
 POSTGRES_DB=foodstore_db
-DATABASE_URL=postgresql://foodstore:foodstore_pass@db:5432/foodstore_db
-
+DATABASE_URL=postgresql://foodstore:foodstore_pass@localhost:5433/foodstore_db
 # ── Backend ──────────────────────────────────────────────────────────────
 SECRET_KEY=dev-secret-key-change-in-production-min-64-chars
 ACCESS_TOKEN_EXPIRE_MINUTES=15

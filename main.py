@@ -6,11 +6,20 @@ from dotenv import load_dotenv
 from sqlmodel import SQLModel
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.modules.dominio_1.usuario.models import (
+    Usuario,
+    Rol,
+    UsuarioRol,
+    RefreshToken,
+    DireccionEntrega,
+)
+
 from app.core.database import engine
 
 from app.modules.dominio_2.categoria.router import router as categoria_router
 from app.modules.dominio_2.ingrediente.router import router as ingrediente_router
 from app.modules.dominio_2.producto.router import router as producto_router
+from app.modules.dominio_3.Pedido.routers import router as pedido_router
 
 from app.utils.errores import manejar_http_exceptions, manejar_validaciones
 
@@ -50,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(categoria_router, prefix="/categorias", tags=["categorias"])
     app.include_router(producto_router, prefix="/productos", tags=["productos"])
     app.include_router(ingrediente_router, prefix="/ingredientes", tags=["ingredientes"])
+    app.include_router(pedido_router, prefix="/pedidos", tags=["pedidos"])
 
     app.add_exception_handler(HTTPException, manejar_http_exceptions)
     app.add_exception_handler(RequestValidationError, manejar_validaciones)

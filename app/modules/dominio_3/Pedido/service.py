@@ -1,0 +1,236 @@
+from decimal import Decimal
+from fastapi import HTTPException
+from app.modules.dominio_3.DetallePedido.models import DetallePedido
+from app.modules.dominio_3.DetallePedido.schemas import DetallePedidoRead
+from app.modules.dominio_3.HistorialEstadoPedido.models import HistorialEstadoPedido
+from app.modules.dominio_3.HistorialEstadoPedido.schemas import HistorialEstadoPedidoRead
+from app.modules.dominio_3.Pedido.models import Pedido
+from app.modules.dominio_3.Pedido.schemas import (
+    PedidoCambioEstado,
+    PedidoCreate,
+    PedidoReadFull,
+)
+from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
+class PedidoService:
+    ESTADO_INICIAL = "PENDIENTE"
+    DESCUENTO_INICIAL = Decimal("0.00")
+    COSTO_ENVIO_FIJO = Decimal("50.00")
+    TRANSICIONES_VALIDAS = {
+        "PENDIENTE": {"CONFIRMADO", "CANCELADO"},
+        "CONFIRMADO": {"EN_PREP", "CANCELADO"},
+        "EN_PREP": {"EN_CAMINO", "CANCELADO"},
+        "EN_CAMINO": {"ENTREGADO"},
+        "ENTREGADO": set(),
+        "CANCELADO": set(),
+    }
+    def __init__(self, uow: PedidoUnitOfWork):
+        self._uow = uow
+    def crear_pedido(self, data: PedidoCreate, usuario_id: int) -> PedidoReadFull:
+        with self._uow as uow:
+            self._validar_forma_pago(uow, data.forma_pago_codigo)
+            self._obtener_estado_o_error(
+                uow=uow,
+                codigo=self.ESTADO_INICIAL,
+                mensaje="Estado inicial no configurado",
+                status_code=500,
+            )
+            producto_ids = [item.producto_id for item in data.items]
+            if len(producto_ids) != len(set(producto_ids)):
+                raise HTTPException(
+                    status_code=400,
+                    detail="No puede pedir dos veces el mismo producto",
+                )
+            subtotal = Decimal("0.00")
+            detalles_creados = []
+            for item in data.items:
+                producto = uow.productos.get_by_id(item.producto_id)
+                if producto is None:
+                    raise HTTPException(status_code=404, detail="Producto no encontrado")
+                if getattr(producto, "deleted_at", None) is not None:
+                    raise HTTPException(status_code=404, detail="Producto no encontrado")
+                if not producto.disponible:
+                    raise HTTPException(status_code=400, detail="Producto no disponible")
+                if producto.stock_cantidad < item.cantidad:
+                    raise HTTPException(status_code=400, detail="No hay stock suficiente")
+                precio_snapshot = producto.precio_base
+                subtotal_snapshot = precio_snapshot * item.cantidad
+                subtotal += subtotal_snapshot
+                detalles_creados.append(
+                    {
+                        "item": item,
+                        "producto": producto,
+                        "subtotal_snapshot": subtotal_snapshot,
+                    }
+                )
+            descuento = self.DESCUENTO_INICIAL
+            costo_envio = self.COSTO_ENVIO_FIJO
+            total = subtotal - descuento + costo_envio
+            pedido = Pedido(
+                usuario_id=usuario_id,
+                direccion_id=data.direccion_id,
+                estado_codigo=self.ESTADO_INICIAL,
+                forma_pago_codigo=data.forma_pago_codigo,
+                subtotal=subtotal,
+                descuento=descuento,
+                costo_envio=costo_envio,
+                total=total,
+                notas=data.notas,
+            )
+            pedido = uow.pedidos.add(pedido)
+            for detalle_creado in detalles_creados:
+                item = detalle_creado["item"]
+                producto = detalle_creado["producto"]
+                subtotal_snapshot = detalle_creado["subtotal_snapshot"]
+                detalle = DetallePedido(
+                    pedido_id=pedido.id,
+                    producto_id=item.producto_id,
+                    cantidad=item.cantidad,
+                    nombre_snapshot=producto.nombre,
+                    precio_snapshot=producto.precio_base,
+                    subtotal_snapshot=subtotal_snapshot,
+                    personalizacion=item.personalizacion,
+                )
+                uow.detalles.add(detalle)
+            self._registrar_historial(
+                uow=uow,
+                pedido_id=pedido.id,
+                estado_desde=None,
+                estado_hacia=self.ESTADO_INICIAL,
+                usuario_id=usuario_id,
+                motivo="Pedido creado",
+            )
+            return self._armar_pedido_read_full(uow, pedido)
+    def obtener_pedido_por_id(self, pedido_id: int) -> PedidoReadFull:
+        with self._uow as uow:
+            pedido = self._obtener_pedido_o_404(uow, pedido_id)
+            return self._armar_pedido_read_full(uow, pedido)
+    def obtener_historial_pedido(self, pedido_id: int) -> list[HistorialEstadoPedidoRead]:
+        with self._uow as uow:
+            self._obtener_pedido_o_404(uow, pedido_id)
+            historial = uow.historial.get_all_by_pedido_id(pedido_id)
+            return [
+                HistorialEstadoPedidoRead.model_validate(evento)
+                for evento in historial
+            ]
+    def cambiar_estado_pedido(
+        self,
+        pedido_id: int,
+        data: PedidoCambioEstado,
+        usuario_id: int,
+    ) -> PedidoReadFull:
+        with self._uow as uow:
+            pedido = self._obtener_pedido_o_404(uow, pedido_id)
+            estado_actual = self._obtener_estado_o_error(
+                uow=uow,
+                codigo=pedido.estado_codigo,
+                mensaje="El estado actual del pedido no está configurado",
+                status_code=500,
+            )
+            estado_destino = self._obtener_estado_o_error(
+                uow=uow,
+                codigo=data.estado_hacia,
+                mensaje="Estado destino inválido",
+                status_code=400,
+            )
+            self._validar_transicion(
+                estado_actual_codigo=pedido.estado_codigo,
+                estado_destino_codigo=estado_destino.codigo,
+                estado_actual_es_terminal=estado_actual.es_terminal,
+                motivo=data.motivo,
+            )
+            estado_desde = pedido.estado_codigo
+            pedido.estado_codigo = estado_destino.codigo
+            pedido = uow.pedidos.update(pedido)
+            self._registrar_historial(
+                uow=uow,
+                pedido_id=pedido.id,
+                estado_desde=estado_desde,
+                estado_hacia=estado_destino.codigo,
+                usuario_id=usuario_id,
+                motivo=data.motivo,
+            )
+            return self._armar_pedido_read_full(uow, pedido)
+    def _obtener_pedido_o_404(self, uow, pedido_id: int) -> Pedido:
+        pedido = uow.pedidos.get_by_id(pedido_id)
+        if pedido is None:
+            raise HTTPException(status_code=404, detail="Pedido no encontrado")
+        return pedido
+    def _validar_forma_pago(self, uow, codigo: str):
+        forma_pago = uow.formas_pago.get_by_codigo(codigo)
+        if forma_pago is None:
+            raise HTTPException(status_code=400, detail="Forma de pago no encontrada")
+        if not forma_pago.habilitado:
+            raise HTTPException(status_code=400, detail="Forma de pago no está habilitada")
+        return forma_pago
+    def _obtener_estado_o_error(
+        self,
+        uow,
+        codigo: str,
+        mensaje: str,
+        status_code: int = 400,
+    ):
+        estado = uow.estados.get_by_codigo(codigo)
+        if estado is None:
+            raise HTTPException(status_code=status_code, detail=mensaje)
+        return estado
+    def _validar_transicion(
+        self,
+        estado_actual_codigo: str,
+        estado_destino_codigo: str,
+        estado_actual_es_terminal: bool,
+        motivo: str | None,
+    ) -> None:
+        if estado_actual_es_terminal:
+            raise HTTPException(
+                status_code=409,
+                detail="No se puede cambiar un pedido en estado terminal",
+            )
+        transiciones_permitidas = self.TRANSICIONES_VALIDAS.get(
+            estado_actual_codigo,
+            set(),
+        )
+        if estado_destino_codigo not in transiciones_permitidas:
+            raise HTTPException(
+                status_code=409,
+                detail=f"No se puede cambiar de {estado_actual_codigo} a {estado_destino_codigo}",
+            )
+        if estado_destino_codigo == "CANCELADO" and not motivo:
+            raise HTTPException(
+                status_code=400,
+                detail="El motivo es obligatorio para cancelar un pedido",
+            )
+    def _registrar_historial(
+        self,
+        uow,
+        pedido_id: int,
+        estado_desde: str | None,
+        estado_hacia: str,
+        usuario_id: int | None,
+        motivo: str | None = None,
+    ) -> None:
+        historial = HistorialEstadoPedido(
+            pedido_id=pedido_id,
+            estado_desde=estado_desde,
+            estado_hacia=estado_hacia,
+            usuario_id=usuario_id,
+            motivo=motivo,
+        )
+        uow.historial.add(historial)
+    def _armar_pedido_read_full(self, uow, pedido: Pedido) -> PedidoReadFull:
+        detalles = uow.detalles.get_all_by_pedido_id(pedido.id)
+        detalles_read = [
+            DetallePedidoRead.model_validate(detalle)
+            for detalle in detalles
+        ]
+        return PedidoReadFull(
+            id=pedido.id,
+            estado_codigo=pedido.estado_codigo,
+            forma_pago_codigo=pedido.forma_pago_codigo,
+            subtotal=pedido.subtotal,
+            descuento=pedido.descuento,
+            costo_envio=pedido.costo_envio,
+            total=pedido.total,
+            notas=pedido.notas,
+            created_at=pedido.created_at,
+            items=detalles_read,
+        )
