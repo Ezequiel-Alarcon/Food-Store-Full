@@ -1,0 +1,80 @@
+from decimal import Decimal
+from typing import Optional, List
+from datetime import datetime
+
+from sqlmodel import SQLModel, Field
+from sqlalchemy import model_validator
+
+from app.modules.dominio_3.DetallePedido.schemas import (
+    DetallePedidoCreate,
+    DetallePedidoRead,
+)
+
+
+class PedidoCreate(SQLModel):
+    direccion_id: Optional[int] = Field(
+        default=None,
+        description="ID de dirección de entrega."
+    )
+    forma_pago_codigo: str = Field(
+        ...,
+        max_length=20,
+        description="Código de forma de pago."
+    )
+    notas: Optional[str] = Field(
+        default=None,
+        description="Notas opcionales."
+    )
+    items: List[DetallePedidoCreate] = Field(
+        ...,
+        min_length=1,
+        description="Items del pedido."
+    )
+
+class PedidoCambioEstado(SQLModel):
+    estado_hacia: str = Field(
+        ...,
+        max_length=20,
+        description="Nuevo estado del pedido"
+    )
+    motivo: Optional[str] = Field(
+        default=None,
+        description="Motivo del cambio. Obligatorio si se cancela."
+    )
+    @model_validator(mode="after")
+    def validar_motivo_cancelacion(self):
+        if self.estado_hacia == "CANCELADO" and not self.motivo:
+            raise ValueError("El motivo es obligatorio si el estado_hacia es CANCELADO")
+        return self
+
+class HistorialEstadoPedidoRead(SQLModel):
+    id: int
+    pedido_id: int
+    estado_desde: Optional[str] = None
+    estado_hacia: str
+    usuario_id: Optional[int] = None
+    motivo: Optional[str] = None
+    created_at: datetime
+
+class PedidoRead(SQLModel):
+    id: int
+    usuario_id: int
+    direccion_id: Optional[int] = None
+    estado_codigo: str
+    forma_pago_codigo: str
+    subtotal: Decimal
+    descuento: Decimal
+    costo_envio: Decimal
+    total: Decimal
+    notas: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
+class PedidoReadFull(PedidoRead):
+    items: List[DetallePedidoRead] = Field(default_factory=list)
+    historial: List[HistorialEstadoPedidoRead] = Field(default_factory=list)
+
+class PedidoList(SQLModel):
+    data: List[PedidoRead]
+    total: int
