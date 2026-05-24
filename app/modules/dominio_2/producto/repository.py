@@ -10,6 +10,13 @@ class ProductoRepository(BaseRepository[Producto]):
         # Inicializamos el repositorio con la sesión y el modelo específico
         super().__init__(session, Producto)
 
+    # Función auxiliar para obtener productos por nombre
+    def get_by_name(self, name: str, include_deleted: bool = False) -> Producto | None:
+        query = select(Producto).where(Producto.nombre == name)
+        if not include_deleted:
+            query = query.where(Producto.deleted_at.is_(None))
+        return self.session.exec(query).first()
+
     # Método para obtener productos disponibles con paginación y filtros opcionales
     def get_active(
         self,
@@ -21,7 +28,7 @@ class ProductoRepository(BaseRepository[Producto]):
         query = (
             select(Producto)
             .where(Producto.disponible)
-            .where(Producto.borrado == False)  # noqa: E712
+            .where(Producto.deleted_at == None)  # noqa: E712
         )
         if categoria_ids:
             query = query.join(ProductoCategoria).where(
@@ -43,7 +50,7 @@ class ProductoRepository(BaseRepository[Producto]):
             select(func.count())
             .select_from(Producto)
             .where(Producto.disponible)
-            .where(Producto.borrado == False)  # noqa: E712
+            .where(Producto.deleted_at == None)  # noqa: E712
         )
         if categoria_ids:
             query = query.join(ProductoCategoria).where(
@@ -62,7 +69,7 @@ class ProductoRepository(BaseRepository[Producto]):
             select(Producto)
             .join(ProductoCategoria)
             .where(ProductoCategoria.categoria_id == categoria_id)
-            .where(Producto.borrado == False)  # noqa: E712
+            .where(Producto.deleted_at == None)  # noqa: E712
             .offset(offset)
             .limit(limit)
         ).all())
@@ -73,7 +80,7 @@ class ProductoRepository(BaseRepository[Producto]):
             select(func.count()).select_from(Producto)
             .join(ProductoCategoria)
             .where(ProductoCategoria.categoria_id == categoria_id)
-            .where(Producto.borrado == False)  # noqa: E712
+            .where(Producto.deleted_at == None)  # noqa: E712
         ).first()
         return resultado or 0
 

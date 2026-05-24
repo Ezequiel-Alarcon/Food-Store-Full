@@ -4,11 +4,12 @@ Ejecutar: python seed.py
 Crea datos de prueba para demostrar el flujo completo del Dominio 3.
 """
 from decimal import Decimal
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
 from app.core.database import engine
 from app.modules.dominio_2.categoria.models import Categoria
 from app.modules.dominio_2.ingrediente.models import Ingrediente
 from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
 
 
 def seed():
@@ -121,6 +122,23 @@ def seed():
         session.add_all([clasica, bbq, vegana_prod, sin_tacc_prod, coca, limonada])
         session.flush()
 
+        # ── Unidades de medida ────────────────────────────────────────────────
+        unidades_medida_seed = [
+            {"nombre": "Kilogramo", "simbolo": "kg", "tipo": "peso"},
+            {"nombre": "Gramo", "simbolo": "g", "tipo": "peso"},
+            {"nombre": "Litro", "simbolo": "L", "tipo": "volumen"},
+            {"nombre": "Mililitro", "simbolo": "mL", "tipo": "volumen"},
+            {"nombre": "Unidad", "simbolo": "u", "tipo": "unidad"},
+            {"nombre": "Docena", "simbolo": "doc", "tipo": "unidad"},
+            {"nombre": "Metro cuadrado", "simbolo": "m²", "tipo": "superficie"},
+        ]
+        for unidad_data in unidades_medida_seed:
+            existente = session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == unidad_data["simbolo"])).first()
+            if not existente:
+                session.add(UnidadMedida(**unidad_data))
+        session.flush()
+
+
         # ── PRODUCTO ↔ CATEGORÍA ─────────────────────────────────────
         session.add(ProductoCategoria(producto_id=clasica.id,       categoria_id=hamburguesas.id, es_principal=True))
 
@@ -172,6 +190,7 @@ def seed():
         print("🌱 Seed OK:")
         print(f"   • 6 categorías (3 principales + 3 subcategorías)")
         print(f"   • 12 ingredientes (3 alérgenos)")
+        print(f"   • 7 unidades de medida")
         print(f"   • 6 productos con categorías e ingredientes asignados")
         print(f"   • Relaciones con es_principal y es_removible configuradas")
 

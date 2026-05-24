@@ -16,6 +16,7 @@ from app.modules.dominio_1.usuario.models import (
 
 from app.core.database import engine
 
+from app.modules.dominio_2.UnidadMedida.routers import router as unidad_medida_router
 from app.modules.dominio_2.categoria.router import router as categoria_router
 from app.modules.dominio_2.ingrediente.router import router as ingrediente_router
 from app.modules.dominio_2.producto.router import router as producto_router
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     # ======== ROUTERS ======== #
     app.include_router(categoria_router, prefix="/categorias", tags=["categorias"])
     app.include_router(producto_router, prefix="/productos", tags=["productos"])
+    app.include_router(unidad_medida_router, prefix="/unidades-medida", tags=["unidades-medida"])
     app.include_router(ingrediente_router, prefix="/ingredientes", tags=["ingredientes"])
     app.include_router(pedido_router, prefix="/pedidos", tags=["pedidos"])
 
