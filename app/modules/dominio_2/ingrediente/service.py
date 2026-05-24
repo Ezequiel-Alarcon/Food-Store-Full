@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from typing import cast
 
+from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.ingrediente.models import Ingrediente
 from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteCreate,
@@ -40,7 +41,7 @@ class IngredienteService:
         productos = [
             ProductoBasicRead(id=cast(int, producto.id), nombre=producto.nombre)
             for producto in ingrediente.productos
-            if not producto.borrado
+            if producto.deleted_at is None
         ]
         return IngredienteReadFull(
             id=cast(int, ingrediente.id),
@@ -54,13 +55,13 @@ class IngredienteService:
         with self._uow as uow:
             self._validar_nombre_unico(uow, data.nombre)
             nuevo_ingrediente = Ingrediente.model_validate(data)
-            uow.ingredientes.create(nuevo_ingrediente)
+            uow.ingredientes.add(nuevo_ingrediente)
             return IngredienteRead.model_validate(nuevo_ingrediente)
 
     def get_all(self, offset: int = 0, limit: int = 20):
         with self._uow as uow:
-            ingredientes = uow.ingredientes.get_all(offset, limit)
-            total = uow.ingredientes.count()
+            ingredientes = uow.ingredientes.get_all_by_state(EstadoFiltro.ACTIVO, offset, limit)
+            total = uow.ingredientes.count_model(EstadoFiltro.ACTIVO)
             resultado = {"data": [self._to_read_full(i) for i in ingredientes], "total": total}
             return resultado
 

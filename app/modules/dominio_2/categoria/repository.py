@@ -7,13 +7,21 @@ class CategoriaRepository(BaseRepository[Categoria]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Categoria)
     
+
+    # Filtro por nombre de categoría
+    def get_by_name(self, name: str, include_deleted: bool = False) -> Categoria | None:
+        query = select(Categoria).where(Categoria.nombre == name)
+        if not include_deleted:
+            query = query.where(Categoria.deleted_at.is_(None))
+        return self.session.exec(query).first() 
+
     # Obtener categorías principales (sin padre)
     def get_categories(self, offset: int = 0, limit: int = 20) -> list[Categoria]:
         return list(
             self.session.exec(
                 select(Categoria)
                 .where(Categoria.parent_id == None)  # noqa: E711
-                .where(Categoria.borrado == False)  # noqa: E711
+                .where(Categoria.deleted_at == None)  # noqa: E711
                 .offset(offset)
                 .limit(limit)
             ).all()
@@ -24,7 +32,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
         resultado = self.session.exec(
         select(func.count()).select_from(Categoria)
         .where(Categoria.parent_id == None)  # noqa: E711
-        .where(Categoria.borrado == False)  # noqa: E711
+        .where(Categoria.deleted_at == None)  # noqa: E711
         ).first()
         return resultado or 0
     
@@ -34,7 +42,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
             self.session.exec(
                 select(Categoria)
                 .where(Categoria.parent_id == parent_id)
-                .where(Categoria.borrado == False)  # noqa: E711
+                .where(Categoria.deleted_at == None)  # noqa: E711
                 .offset(offset)
                 .limit(limit)
             ).all()
@@ -45,7 +53,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
         resultado = self.session.exec(
             select(func.count()).select_from(Categoria)
             .where(Categoria.parent_id == parent_id)
-            .where(Categoria.borrado == False)  # noqa: E711
+            .where(Categoria.deleted_at == None)  # noqa: E711
         ).first()
         return resultado or 0
 
@@ -53,7 +61,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
         return list(
             self.session.exec(
                 select(Categoria)
-                .where(Categoria.borrado == False)
+                .where(Categoria.deleted_at == None)  # noqa: E711
                 .order_by(Categoria.nombre)
                 .offset(offset)
                 .limit(limit)
@@ -64,7 +72,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
         return list(
             self.session.exec(
                 select(Categoria)
-                .where(Categoria.borrado == False)
+                .where(Categoria.deleted_at == None)  # noqa: E711
                 .order_by(Categoria.nombre)
             ).all()
         )
