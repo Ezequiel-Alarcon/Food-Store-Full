@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from typing import cast
 
+from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.categoria.models import Categoria
 from app.modules.dominio_2.categoria.schemas import (
     CategoriaCreate,
@@ -58,7 +59,7 @@ class CategoriaService:
         productos = [
             ProductoBasicRead(id=cast(int, producto.id), nombre=producto.nombre)
             for producto in categoria.productos
-            if not producto.borrado
+            if producto.deleted_at is None
         ]
         return CategoriaReadFull(
             id=cast(int, categoria.id),
@@ -99,13 +100,13 @@ class CategoriaService:
                 self._get_or_404(uow, data.parent_id)
     
             nueva_categoria = Categoria.model_validate(data)
-            uow.categorias.create(nueva_categoria)
+            uow.categorias.add(nueva_categoria)
             return CategoriaRead.model_validate(nueva_categoria)
 
     def get_all(self, offset: int = 0, limit: int = 20):
         with self._uow as uow:
-            categorias = uow.categorias.get_all(offset, limit)
-            total = uow.categorias.count()
+            categorias = uow.categorias.get_all_by_state(EstadoFiltro.ACTIVO, offset, limit)
+            total = uow.categorias.count_model(EstadoFiltro.ACTIVO)
             resultado = {"data": [self._to_read_full(c) for c in categorias], "total": total}
             return resultado
 
@@ -133,7 +134,7 @@ class CategoriaService:
     def get_ordenadas(self, offset: int = 0, limit: int = 20):
         with self._uow as uow:
             categorias = uow.categorias.get_ordenadas(offset, limit)
-            total = uow.categorias.count()
+            total = uow.categorias.count_model(EstadoFiltro.ACTIVO)
             resultado = {"data": [self._to_read_full(c) for c in categorias], "total": total}
             return resultado
 

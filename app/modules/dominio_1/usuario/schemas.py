@@ -1,6 +1,5 @@
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field
-import uuid
 
 # --- Sub-Schemas para mostrar en la respuesta pública ---
 class RolPublic(BaseModel):
@@ -27,7 +26,7 @@ class UserUpdateAdmin(UserUpdateClient):
     
 # --- Salida de datos (GET /me, Respuesta de Login/Register) ---
 class UserPublic(BaseModel):
-    id: uuid.UUID
+    id: int
     nombre: str
     apellido: str
     email: str

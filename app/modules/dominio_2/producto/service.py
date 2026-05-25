@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from typing import Optional, cast
 
+from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
 from app.modules.dominio_2.producto.schemas import (
     CategoriaBasicRead,
@@ -48,7 +49,7 @@ class ProductoService:
                 es_principal=categoria_principal_por_id.get(cast(int, categoria.id), False),
             )
             for categoria in producto.categorias
-            if not categoria.borrado
+            if categoria.deleted_at is None
         ]
         ingredientes = [
             IngredienteBasicRead(
@@ -57,7 +58,7 @@ class ProductoService:
                 es_alergeno=ingrediente.es_alergeno,
             )
             for ingrediente in producto.ingredientes
-            if not ingrediente.borrado
+            if ingrediente.deleted_at is None
         ]
         return ProductoReadFull(
             id=cast(int, producto.id),
@@ -80,7 +81,7 @@ class ProductoService:
             # Excluimos las relaciones porque no van en la tabla "productos" directamente
             data_dict = data.model_dump(exclude={"categoria_ids", "ingrediente_ids"})
             nuevo_producto = Producto(**data_dict)
-            uow.productos.create(nuevo_producto)
+            uow.productos.add(nuevo_producto)
             
             # 1. Asignar categorías (la primera será la principal)
             for i, cat_id in enumerate(data.categoria_ids):
@@ -112,8 +113,8 @@ class ProductoService:
 
     def get_all(self, offset: int = 0, limit: int = 20):
         with self._uow as uow:
-            productos = uow.productos.get_all(offset, limit)
-            total = uow.productos.count()
+            productos = uow.productos.get_all_by_state(EstadoFiltro.ACTIVO, offset, limit)
+            total = uow.productos.count_model(EstadoFiltro.ACTIVO)
             resultado = {"data": [self._to_read_full(uow, p) for p in productos], "total": total}
             return resultado
     

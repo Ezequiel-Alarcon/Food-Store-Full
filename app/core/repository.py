@@ -1,5 +1,4 @@
 from typing import Generic, TypeVar, Type, Sequence, Optional
-import uuid
 from sqlmodel import Session, SQLModel, func, select
 from sqlmodel.sql._expression_select_cls import SelectOfScalar
 from app.core.enums import EstadoFiltro
@@ -27,7 +26,7 @@ class BaseRepository(Generic[T]):
 
 
     #===========Read============
-    def get_by_id(self, record_id: int | uuid.UUID) -> Optional[T]:
+    def get_by_id(self, record_id: int) -> Optional[T]:
         return self.session.get(self.model, record_id)
     
 

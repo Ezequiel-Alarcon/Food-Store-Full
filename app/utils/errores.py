@@ -9,11 +9,13 @@ async def manejar_validaciones(request: Request, exc: RequestValidationError):
     mensaje = f"Error de validación en el campo: {primer_error['loc'][-1]} - {primer_error['msg']}"
     return JSONResponse(
         status_code=422,
-        content={"mensaje": mensaje, "codigo": 422}
+        content={"mensaje": mensaje, "codigo": 422},
+        headers={"Access-Control-Allow-Origin": "*"}
     )
 
 async def manejar_http_exceptions(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"mensaje": exc.detail, "codigo": exc.status_code}
+        content={"mensaje": exc.detail, "codigo": exc.status_code},
+        headers={"Access-Control-Allow-Origin": "*"}
     )
