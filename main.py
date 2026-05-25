@@ -22,6 +22,9 @@ from app.modules.dominio_2.ingrediente.router import router as ingrediente_route
 from app.modules.dominio_2.producto.router import router as producto_router
 from app.modules.dominio_3.Pedido.routers import router as pedido_router
 
+from app.modules.dominio_1.usuario.routers import auth_router, usuarios_router, admin_router
+from app.modules.dominio_1.direccion_entrega.routers import router as direccion_router
+
 from app.utils.errores import manejar_http_exceptions, manejar_validaciones
 
 @asynccontextmanager
@@ -57,6 +60,11 @@ def create_app() -> FastAPI:
 
 
     # ======== ROUTERS ======== #
+    app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(usuarios_router, prefix="/api/v1")
+    app.include_router(admin_router, prefix="/api/v1")
+    app.include_router(direccion_router, prefix="/api/v1")
+
     app.include_router(categoria_router, prefix="/categorias", tags=["categorias"])
     app.include_router(producto_router, prefix="/productos", tags=["productos"])
     app.include_router(unidad_medida_router, prefix="/unidades-medida", tags=["unidades-medida"])
