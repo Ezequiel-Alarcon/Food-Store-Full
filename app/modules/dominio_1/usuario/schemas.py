@@ -1,19 +1,23 @@
 from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field
+from sqlmodel import SQLModel
 
 # --- Sub-Schemas para mostrar en la respuesta pública ---
-class RolPublic(BaseModel):
+class RolPublic(SQLModel):
     codigo: str
     nombre: str
     # descripcion: Optional[str] = None
 
 # --- Entrada de datos (POST /register) ---
-class UserCreate(BaseModel):
+class UserCreate(SQLModel):
     nombre: str = Field(..., max_length=80)
     apellido: str = Field(..., max_length=80)
     email: EmailStr
     celular: Optional[str] = Field(default=None, max_length=20)
     password: str = Field(min_length=8)
+
+class UserCreateAdmin(UserCreate):
+    roles_codigos: List[str]
  
 class UserUpdateClient(BaseModel):
     nombre: Optional[str] = Field(default=None, max_length=80)
@@ -25,7 +29,7 @@ class UserUpdateAdmin(UserUpdateClient):
 
     
 # --- Salida de datos (GET /me, Respuesta de Login/Register) ---
-class UserPublic(BaseModel):
+class UserPublic(SQLModel):
     id: int
     nombre: str
     apellido: str
@@ -33,8 +37,11 @@ class UserPublic(BaseModel):
     celular: Optional[str] = None
 
 class UserPublicAdminPanel(UserPublic):
-    rol: RolPublic
+    roles: List[RolPublic]
     
+class UserPaginationResponse(SQLModel):
+    data: List[UserPublicAdminPanel]  # Aquí sí usamos UserPublic para filtrar cada usuario de la lista
+    total: int
 
 # --- Respuesta del Login ---
 class Token(BaseModel):

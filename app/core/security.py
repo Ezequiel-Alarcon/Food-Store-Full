@@ -60,5 +60,6 @@ def decode_access_token(token: str) -> dict | None:
         if payload.get("type") != "access":
             return None
         return payload
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT ERROR: {e}")
         return None

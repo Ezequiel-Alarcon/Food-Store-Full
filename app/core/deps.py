@@ -72,7 +72,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
         return token
 
 # Define el esquema OAuth2 que extrae el token de la cookie (o header)
-oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="/api/v1/auth/login")
 
 
 
@@ -115,7 +115,7 @@ async def get_current_user(
         if user is None:
             raise credentials_exception
 
-        return UserPublic.model_validate(user)  # Usuario autenticado válido
+        return user  # Usuario autenticado válido
 
 
 async def get_current_active_user(
@@ -128,14 +128,14 @@ async def get_current_active_user(
     - Un usuario con disabled=True no puede operar
     """
 
-    if current_user.deleted_at is None:
+    if current_user.deleted_at is not None:
         # Error semántico: el usuario existe pero no puede operar
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cuenta de usuario desactivada",
         )
 
-    return UserPublic.model_validate(current_user) # Usuario válido y activo
+    return current_user # Usuario válido y activo
 
 
 def require_role(allowed_roles: list[str]):

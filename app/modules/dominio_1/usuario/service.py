@@ -1,5 +1,4 @@
 import hashlib
-import uuid
 from app.core.config import settings
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
@@ -16,7 +15,7 @@ class UsuarioService:
     def __init__(self, uow: UsuarioUnitOfWork):
         self.uow = uow
 
-    def _get_user_of_404(self, usuario_id: uuid.UUID) -> Usuario:
+    def _get_user_of_404(self, usuario_id: int) -> Usuario:
         user = self.uow.usuarios.get_by_id(usuario_id)
         
         if not user or user.deleted_at is not None:
@@ -50,7 +49,7 @@ class UsuarioService:
         
         return self.uow.usuarios.add(nuevo_usuario)
     
-    def _update_user_core(self, usuario_id: uuid.UUID, data_dict: dict, nuevos_roles: Optional[List[Rol]] = None) -> Usuario:
+    def _update_user_core(self, usuario_id: int, data_dict: dict, nuevos_roles: Optional[List[Rol]] = None) -> Usuario:
         user = self._get_user_of_404(usuario_id)
 
         for key, value in data_dict.items():
@@ -115,7 +114,7 @@ class UsuarioService:
             # 1. Access Token
             roles_codigos = [rol.codigo for rol in user.roles]
             access_token = create_access_token(
-                data={"sub": user.id, "roles": roles_codigos}
+                data={"sub": str(user.id), "roles": roles_codigos}
             )
 
             # 2. Refresh Token
@@ -128,7 +127,7 @@ class UsuarioService:
                 expires_at=expires_at
             )
             
-            uow.session.add(nuevo_rt) 
+            uow._session.add(nuevo_rt) 
 
             return Token(
                 access_token=access_token,
@@ -137,13 +136,13 @@ class UsuarioService:
             )
         
 
-    def update_profile(self, usuario_id: uuid.UUID, user_in: UserUpdateClient) -> Usuario:
+    def update_profile(self, usuario_id: int, user_in: UserUpdateClient) -> Usuario:
         with self.uow:
             data = user_in.model_dump(exclude_unset=True)
             return self._update_user_core(usuario_id, data_dict=data)
     
 
-    def update_user_by_admin(self, user_id: uuid.UUID, user_in: UserUpdateAdmin) -> Usuario:
+    def update_user_by_admin(self, user_id: int, user_in: UserUpdateAdmin) -> Usuario:
         with self.uow as uow:
             data = user_in.model_dump(exclude_unset=True)
 
@@ -169,11 +168,16 @@ class UsuarioService:
     # ==========================================
 
     def get_all_users(self,offset: int = 0, limit: int = 20, rol_codigo: Optional[str] = None):
-        with self.uow as uow:
-            return uow.usuarios.get_paged_users(offset=offset, limit=limit, rol_codigo=rol_codigo, state = EstadoFiltro.ACTIVO)
-        
+        with self.uow:
+            usuarios_paginados = self.uow.usuarios.get_paged_users(offset=offset, limit=limit, rol_codigo=rol_codigo, state = EstadoFiltro.ACTIVO)
 
-    def desactivar_usuario(self, user_id: uuid.UUID):
+            total = self.uow.usuarios.count_model(state=EstadoFiltro.ACTIVO)
+        return{
+            "data": usuarios_paginados,
+            "total": total
+        }
+
+    def desactivar_usuario(self, user_id: int):
         """Aplica el borrado lógico."""
         with self.uow as uow:
             user = self._get_user_of_404(user_id)

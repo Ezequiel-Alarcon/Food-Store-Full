@@ -1,5 +1,4 @@
 from typing import Optional, Sequence
-import uuid
 from sqlmodel import select, Session
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
@@ -9,20 +8,17 @@ class DireccionRepository(BaseRepository[DireccionEntrega]):
     def __init__(self, session: Session):
         super().__init__(session, DireccionEntrega)
 
-    def get_by_usuario(self, usuario_id: uuid.UUID, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> Sequence[DireccionEntrega]:
-        """Trae todas las direcciones de un usuario específico respetando el borrado lógico."""
+    def get_by_usuario(self, usuario_id: int, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> Sequence[DireccionEntrega]:
         statement = select(DireccionEntrega).where(DireccionEntrega.usuario_id == usuario_id)
         
-        # Reutilizamos tu filtro de estado genérico del padre
         statement = self._filter_state(statement, state)
         
         return self.session.exec(statement).all()
 
-    def get_principal_by_usuario(self, usuario_id: uuid.UUID) -> Optional[DireccionEntrega]:
-        """Busca la dirección que actualmente está seteada como principal para el usuario."""
+    def get_principal_by_usuario(self, usuario_id: int) -> Optional[DireccionEntrega]:
         statement = select(DireccionEntrega).where(
             DireccionEntrega.usuario_id == usuario_id,
             DireccionEntrega.es_principal,
-            DireccionEntrega.deleted_at.is_(None) # Solo buscamos entre las activas
+            DireccionEntrega.deleted_at.is_(None)
         )
         return self.session.exec(statement).first()

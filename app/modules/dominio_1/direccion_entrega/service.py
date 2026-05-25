@@ -1,4 +1,3 @@
-import uuid
 from typing import List
 from fastapi import HTTPException, status
 from sqlmodel import Session
@@ -21,11 +20,10 @@ class DireccionService(base_service[DireccionEntrega, DireccionCreate, Direccion
         )
 
     @property
-    def repo(self) -> DireccionRepository: # ¡Acá le damos el tipo exacto!
+    def repo(self) -> DireccionRepository:
         return self.uow.direcciones
 
-    def _get_direccion_segura_or_404(self, direccion_id: int, usuario_id: uuid.UUID) -> DireccionEntrega:
-        """Busca la dirección y valida de forma estricta la propiedad del recurso."""
+    def _get_direccion_segura_or_404(self, direccion_id: int, usuario_id: int) -> DireccionEntrega:
         direccion = self._get_or_404(direccion_id)
         if direccion.usuario_id != usuario_id:
             raise HTTPException(
@@ -36,14 +34,11 @@ class DireccionService(base_service[DireccionEntrega, DireccionCreate, Direccion
 
     # ================= OVERRIDES CON LÓGICA DE NEGOCIO =================
 
-    def crear_direccion_propia(self, usuario_id: uuid.UUID, item_in: DireccionCreate) -> DireccionEntrega:
-        """Crea una dirección asegurando las reglas de negocio de 'es_principal'."""
+    def crear_direccion_propia(self, usuario_id: int, item_in: DireccionCreate) -> DireccionEntrega:
         with self.uow:
-            # Lógica específica: verificar si es la primera para hacerla favorita
             mis_direcciones = self.repo.get_by_usuario(usuario_id)
             es_primera = len(mis_direcciones) == 0
 
-            # Reutilizamos el molde del modelo del padre
             nueva_direccion = self.model_class(
                 **item_in.model_dump(),
                 usuario_id=usuario_id,
@@ -53,39 +48,32 @@ class DireccionService(base_service[DireccionEntrega, DireccionCreate, Direccion
             self.repo.add(nueva_direccion)
             return nueva_direccion
 
-    def listar_mis_direcciones(self, usuario_id: uuid.UUID) -> List[DireccionEntrega]:
-        """Usa el repositorio específico inyectado en el UoW."""
+    def listar_mis_direcciones(self, usuario_id: int) -> List[DireccionEntrega]:
         with self.uow:
             return self.repo.get_by_usuario(usuario_id, state=EstadoFiltro.ACTIVO)
 
-    def actualizar_direccion_propia(self, direccion_id: int, usuario_id: uuid.UUID, item_in: DireccionUpdate) -> DireccionEntrega:
-        """Actualiza de forma segura consumiendo el formateador del padre."""
+    def actualizar_direccion_propia(self, direccion_id: int, usuario_id: int, item_in: DireccionUpdate) -> DireccionEntrega:
         with self.uow:
-            # 1. Validamos propiedad del recurso
             direccion_db = self._get_direccion_segura_or_404(direccion_id, usuario_id)
             
-            # 2. Reutilizamos la lógica del bucle dinámico del padre sin abrir otra transacción
             self._apply_update_fields(direccion_db, item_in)
             
-            # 3. Guardamos a través del repositorio genérico
             self.repo.update(direccion_db)
             return direccion_db
 
-    def eliminar_direccion_propia(self, direccion_id: int, usuario_id: uuid.UUID):
+    def eliminar_direccion_propia(self, direccion_id: int, usuario_id: int):
         with self.uow:
             direccion_db = self._get_direccion_segura_or_404(direccion_id, usuario_id)
             self.repo.delete(direccion_db)
             return {"message": "Dirección eliminada correctamente"}
 
-    def marcar_como_principal(self, direccion_id: int, usuario_id: uuid.UUID) -> DireccionEntrega:
-        """Regla transaccional compleja: baja la principal vieja y sube la nueva."""
+    def marcar_como_principal(self, direccion_id: int, usuario_id: int) -> DireccionEntrega:
         with self.uow:
             nueva_principal = self._get_direccion_segura_or_404(direccion_id, usuario_id)
 
             if nueva_principal.es_principal:
                 return nueva_principal
 
-            # Buscamos si el usuario ya tenía una favorita activa
             vieja_principal = self.repo.get_principal_by_usuario(usuario_id)
             if vieja_principal:
                 vieja_principal.es_principal = False

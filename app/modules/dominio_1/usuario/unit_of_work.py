@@ -12,4 +12,4 @@ class UsuarioUnitOfWork(UnitOfWork):
         self.direcciones = DireccionRepository(self._session)
 
 def get_uow(session: SessionDep) -> UsuarioUnitOfWork:
-    return UsuarioUnitOfWork()
+    return UsuarioUnitOfWork(session)

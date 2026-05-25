@@ -1,6 +1,5 @@
 from typing import Optional
 from pydantic import BaseModel, Field
-import uuid
 
 # --- Base ---
 class DireccionBase(BaseModel):
@@ -13,10 +12,9 @@ class DireccionBase(BaseModel):
 
 # --- Request ---
 class DireccionCreate(DireccionBase):
-    pass # El usuario no manda si es principal en el POST, eso va por el PATCH
+    pass
 
 class DireccionUpdate(BaseModel):
-    # Todo opcional para el PATCH normal
     alias: Optional[str] = Field(default=None, max_length=50)
     linea1: Optional[str] = None
     linea2: Optional[str] = None
@@ -27,5 +25,5 @@ class DireccionUpdate(BaseModel):
 # --- Response ---
 class DireccionRead(DireccionBase):
     id: int
-    usuario_id: uuid.UUID
+    usuario_id: int
     es_principal: bool
