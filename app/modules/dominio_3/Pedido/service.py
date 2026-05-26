@@ -1,6 +1,6 @@
-from app.core import unit_of_work
 from decimal import Decimal
 from fastapi import HTTPException
+
 from app.modules.dominio_3.DetallePedido.models import DetallePedido
 from app.modules.dominio_3.DetallePedido.schemas import DetallePedidoRead
 from app.modules.dominio_3.HistorialEstadoPedido.models import HistorialEstadoPedido
@@ -251,6 +251,36 @@ class PedidoService:
                 self._armar_pedido_read_full(uow, pedido)
                 for pedido in pedidos
             ]   
+        
+    def obtener_todos_los_pedidos(self) -> list[PedidoReadFull]:
+        with self._uow as uow:
+            pedidos = uow.pedidos.get_all_active()
+            return [self._armar_pedido_read_full(uow, p) for p in pedidos]
+
+    def obtener_pedido_propio(self, pedido_id: int, usuario_id: int) -> PedidoReadFull:
+        with self._uow as uow:
+            pedido = self._obtener_pedido_o_404(uow, pedido_id)
+            if pedido.usuario_id != usuario_id:
+                raise HTTPException(status_code=403, detail="No tenés acceso a este pedido")
+            return self._armar_pedido_read_full(uow, pedido)
+
+    def cancelar_pedido_propio(self, pedido_id: int, usuario_id: int, data: PedidoCambioEstado) -> PedidoReadFull:
+        with self._uow as uow:
+            pedido = self._obtener_pedido_o_404(uow, pedido_id)
+            if pedido.usuario_id != usuario_id:
+                raise HTTPException(status_code=403, detail="No tenés acceso a este pedido")
+            estado_actual = self._obtener_estado_o_error(uow, pedido.estado_codigo, "Estado actual inválido", 500)
+            self._validar_transicion(
+                estado_actual_codigo=pedido.estado_codigo,
+                estado_destino_codigo="CANCELADO",
+                estado_actual_es_terminal=estado_actual.es_terminal,
+                motivo=data.motivo,
+            )
+            estado_desde = pedido.estado_codigo
+            pedido.estado_codigo = "CANCELADO"
+            uow.pedidos.update(pedido)
+            self._registrar_historial(uow, pedido.id, estado_desde, "CANCELADO", usuario_id, data.motivo)
+            return self._armar_pedido_read_full(uow, pedido)
 
     def descontar_stock_del_pedido(self, uow, pedido_id: int) -> None:
         detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
