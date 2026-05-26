@@ -1,18 +1,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
-import os
-from dotenv import load_dotenv
 from sqlmodel import SQLModel
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.modules.dominio_1.usuario.models import (
-    Usuario,
-    Rol,
-    UsuarioRol,
-    RefreshToken,
-    DireccionEntrega,
-)
 
 from app.core.database import engine
 
@@ -60,16 +50,21 @@ def create_app() -> FastAPI:
 
 
     # ======== ROUTERS ======== #
+
+    # ── Dominio 1 ──────────────────────────────────────
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(usuarios_router, prefix="/api/v1")
     app.include_router(admin_router, prefix="/api/v1")
     app.include_router(direccion_router, prefix="/api/v1")
 
-    app.include_router(categoria_router, prefix="/categorias", tags=["categorias"])
-    app.include_router(producto_router, prefix="/productos", tags=["productos"])
-    app.include_router(unidad_medida_router, prefix="/unidades-medida", tags=["unidades-medida"])
-    app.include_router(ingrediente_router, prefix="/ingredientes", tags=["ingredientes"])
-    app.include_router(pedido_router, prefix="/pedidos", tags=["pedidos"])
+    # ── Dominio 2 ──────────────────────────────────────
+    app.include_router(categoria_router,     prefix="/api/v1/categorias",     tags=["Categorías"])
+    app.include_router(producto_router,      prefix="/api/v1/productos",      tags=["Productos"])
+    app.include_router(ingrediente_router,   prefix="/api/v1/ingredientes",   tags=["Ingredientes"])
+    app.include_router(unidad_medida_router, prefix="/api/v1/unidades-medida",tags=["Unidades de Medida"])
+
+    # ── Dominio 3 ──────────────────────────────────────
+    app.include_router(pedido_router,        prefix="/api/v1/pedidos",        tags=["Pedidos"])
 
     app.add_exception_handler(HTTPException, manejar_http_exceptions)
     app.add_exception_handler(RequestValidationError, manejar_validaciones)
