@@ -1,86 +1,67 @@
-from typing import Annotated
-
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlmodel import Session
 
 from app.core.database import get_session
 from app.core.deps import require_role
-from app.modules.dominio_2.categoria.schemas import (CategoriaCreate,CategoriaList,CategoriaRead,CategoriaReadFull,CategoriaTreeList,CategoriaUpdate)
-from app.modules.dominio_2.categoria.unit_of_work import CategoriaUnitOfWork
+from app.core.enums import EstadoFiltro
+from app.modules.dominio_2.categoria.schemas import (
+    CategoriaCreate, CategoriaList, CategoriaRead, 
+    CategoriaReadFull, CategoriaTreeList, CategoriaUpdate
+)
 from app.modules.dominio_2.categoria.service import CategoriaService
 
-router = APIRouter()
+router = APIRouter(tags=["Categorías"])
 
-# ── Factory: inyecta el Service con la Session ───────────────────────────────
 def get_categoria_service(session: Session = Depends(get_session)) -> CategoriaService:
-    """Inyecta el servicio con su UoW provisto de la Session."""
-    return CategoriaService(CategoriaUnitOfWork(session))
+    return CategoriaService(session)
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=CategoriaRead, status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_role(["ADMIN"]))])
+@router.post("/", response_model=CategoriaRead, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_role(["ADMIN"]))])
 def create_categoria(data: CategoriaCreate, svc: CategoriaService = Depends(get_categoria_service)):
     return svc.create(data)
 
-@router.get("/",response_model=CategoriaList,summary="Listar todas las categorías (paginado)")
-def list_categorias(offset: Annotated[int, Query(ge=0, description="Índice de inicio")] = 0,limit: Annotated[int, Query(ge=1, le=100, description="Cantidad máxima")] = 20,svc: CategoriaService = Depends(get_categoria_service)):
-    """Lista todas las categorías con paginación."""
-    return svc.get_all(offset=offset, limit=limit)
 
-
-@router.get("/principales",response_model=CategoriaList,summary="Listar categorías principales")
-def list_principales(offset: Annotated[int, Query(ge=0, description="Índice de inicio")] = 0,limit: Annotated[int, Query(ge=1, le=100, description="Cantidad máxima")] = 20,svc: CategoriaService = Depends(get_categoria_service)):
-    """Lista solo categorías principales (sin padre)."""
-    return svc.get_principales(offset=offset, limit=limit)
-
-@router.get(
-    "/ordenadas",
-    response_model=CategoriaList,
-    summary="Listar categorías ordenadas alfabéticamente"
-)
-def list_ordenadas(offset: Annotated[int, Query(ge=0, description="Índice de inicio")] = 0,limit: Annotated[int, Query(ge=1, le=100, description="Cantidad máxima")] = 20,svc: CategoriaService = Depends(get_categoria_service)):
-    """Lista categorías ordenadas alfabéticamente."""
-    return svc.get_ordenadas(offset=offset, limit=limit)
-
-
-@router.get("/arbol",response_model=CategoriaTreeList,summary="Listar árbol completo de categorías")
-def get_tree(
+@router.get("/", response_model=CategoriaList, summary="Listar y filtrar categorías")
+def list_categorias(
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    is_principal: Annotated[Optional[bool], Query(description="Traer solo principales (sin padre)")] = None,
+    parent_id: Annotated[Optional[int], Query(description="Traer subcategorías de un padre")] = None,
+    estado: Annotated[EstadoFiltro, Query(description="Filtrar por estado")] = EstadoFiltro.ACTIVO,
     svc: CategoriaService = Depends(get_categoria_service)
 ):
-    """Devuelve la jerarquía completa de categorías."""
+    # Reemplace 4 endpoints en 1 solo llamado dinámico, Tuki aguanten los query params
+    return svc.get_all_categorias(offset=offset, limit=limit, is_main=is_principal, parent_id=parent_id, estado=estado)
+
+
+@router.get("/arbol", response_model=CategoriaTreeList, summary="Obtener árbol completo")
+def get_tree(svc: CategoriaService = Depends(get_categoria_service)):
     return svc.get_tree()
 
 
-@router.get("/{categoria_id}/subcategorias",response_model=CategoriaList,summary="Listar subcategorías")
-def list_subcategorias(
-    categoria_id: Annotated[int, Path(ge=1, description="ID de la categoría padre")],
-    offset: Annotated[int, Query(ge=0, description="Índice de inicio")] = 0,
-    limit: Annotated[int, Query(ge=1, le=100, description="Cantidad máxima")] = 20,
-    svc: CategoriaService = Depends(get_categoria_service)
-):
-    """Lista las subcategorías de una categoría padre."""
-    return svc.get_by_parent(categoria_id, offset=offset, limit=limit)
-
-
-@router.get("/{categoria_id}",response_model=CategoriaReadFull,summary="Obtener categoría por ID")
+@router.get("/{categoria_id}", response_model=CategoriaReadFull, summary="Obtener categoría por ID")
 def get_categoria(
-    categoria_id: Annotated[int, Path(ge=1, description="ID de la categoría")],
+    categoria_id: Annotated[int, Path(ge=1)],
+    incluir_eliminado: Annotated[bool, Query(description="Permitir ver el registro aunque esté eliminado")] = False,
     svc: CategoriaService = Depends(get_categoria_service)
 ):
-    """Obtiene una categoría por su ID."""
-    return svc.get_by_id(categoria_id)
+    return svc.get_by_id_full(categoria_id, allow_deleted=incluir_eliminado)
 
 
-@router.patch("/{categoria_id}", response_model=CategoriaReadFull,
-    dependencies=[Depends(require_role(["ADMIN"]))])
-def update_categoria(categoria_id: Annotated[int, Path(ge=1)], data: CategoriaUpdate, svc: CategoriaService = Depends(get_categoria_service)):
+@router.patch("/{categoria_id}", response_model=CategoriaReadFull, dependencies=[Depends(require_role(["ADMIN"]))])
+def update_categoria(
+    categoria_id: Annotated[int, Path(ge=1)], 
+    data: CategoriaUpdate, 
+    svc: CategoriaService = Depends(get_categoria_service)
+):
     return svc.update(categoria_id, data)
 
 
-
-# DELETE - solo ADMIN
-@router.delete("/{categoria_id}", status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_role(["ADMIN"]))])
-def delete_categoria(categoria_id: Annotated[int, Path(ge=1)], svc: CategoriaService = Depends(get_categoria_service)):
-    svc.delete(categoria_id)
+@router.delete("/{categoria_id}", status_code=status.HTTP_200_OK, dependencies=[Depends(require_role(["ADMIN"]))])
+def delete_categoria(
+    categoria_id: Annotated[int, Path(ge=1)], 
+    svc: CategoriaService = Depends(get_categoria_service)
+):
+    return svc.delete(categoria_id)

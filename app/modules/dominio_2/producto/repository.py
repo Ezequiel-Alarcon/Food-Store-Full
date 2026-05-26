@@ -1,138 +1,98 @@
 from typing import Any, Optional, cast
-
 from sqlmodel import Session, select, func
+
 from app.core.repository import BaseRepository
+from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
 
-
+# ══════════════════════════════════════════════════════
+# REPOSITORIO PRINCIPAL: PRODUCTO
+# ══════════════════════════════════════════════════════
 class ProductoRepository(BaseRepository[Producto]):
     def __init__(self, session: Session) -> None:
-        # Inicializamos el repositorio con la sesión y el modelo específico
         super().__init__(session, Producto)
 
-    # Función auxiliar para obtener productos por nombre
+
     def get_by_name(self, name: str, include_deleted: bool = False) -> Producto | None:
         query = select(Producto).where(Producto.nombre == name)
         if not include_deleted:
             query = query.where(Producto.deleted_at.is_(None))
         return self.session.exec(query).first()
 
-    # Método para obtener productos disponibles con paginación y filtros opcionales
-    def get_active(
+
+    def get_all_filtered(
         self,
+        state: EstadoFiltro = EstadoFiltro.ACTIVO,
+        disponible: Optional[bool] = None,
+        categoria_ids: Optional[list[int]] = None,
+        ingrediente_ids: Optional[list[int]] = None,
+        q: Optional[str] = None,
         offset: int = 0,
-        limit: int = 20,
-        categoria_ids: Optional[list[int]] = None,
-        ingrediente_ids: Optional[list[int]] = None,
+        limit: int = 20
     ) -> list[Producto]:
-        query = (
-            select(Producto)
-            .where(Producto.disponible)
-            .where(Producto.deleted_at == None)  # noqa: E712
-        )
-        if categoria_ids:
-            query = query.join(ProductoCategoria).where(
-                ProductoCategoria.categoria_id.in_(categoria_ids)
-            )
-        if ingrediente_ids:
-            query = query.join(ProductoIngrediente).where(
-                ProductoIngrediente.ingrediente_id.in_(ingrediente_ids)
-            )
-        return list(self.session.exec(query.offset(offset).limit(limit)).all())
+        statement = select(Producto)
+        statement = self._filter_state(statement, state)
 
-    # Método para contar el total de productos disponibles (con mismos filtros)
-    def count_active(
+        if disponible is not None:
+            statement = statement.where(Producto.disponible == disponible)
+
+        if q:
+            statement = statement.where(Producto.nombre.ilike(f"%{q}%"))
+
+        if categoria_ids:
+            statement = statement.join(ProductoCategoria).where(ProductoCategoria.categoria_id.in_(categoria_ids))
+        if ingrediente_ids:
+            statement = statement.join(ProductoIngrediente).where(ProductoIngrediente.ingrediente_id.in_(ingrediente_ids))
+
+        statement = statement.order_by(Producto.id.asc())
+        return list(self.session.exec(statement.offset(offset).limit(limit)).all())
+
+
+    def count_filtered(
         self,
+        state: EstadoFiltro = EstadoFiltro.ACTIVO,
+        disponible: Optional[bool] = None,
         categoria_ids: Optional[list[int]] = None,
         ingrediente_ids: Optional[list[int]] = None,
+        q: Optional[str] = None
     ) -> int:
-        query = (
-            select(func.count())
-            .select_from(Producto)
-            .where(Producto.disponible)
-            .where(Producto.deleted_at == None)  # noqa: E712
-        )
+        statement = select(func.count()).select_from(Producto)
+        statement = self._filter_state(statement, state)
+
+        if disponible is not None:
+            statement = statement.where(Producto.disponible == disponible)
+
+        if q:
+            statement = statement.where(Producto.nombre.ilike(f"%{q}%"))
+
         if categoria_ids:
-            query = query.join(ProductoCategoria).where(
-                ProductoCategoria.categoria_id.in_(categoria_ids)
-            )
+            statement = statement.join(ProductoCategoria).where(ProductoCategoria.categoria_id.in_(categoria_ids))
         if ingrediente_ids:
-            query = query.join(ProductoIngrediente).where(
-                ProductoIngrediente.ingrediente_id.in_(ingrediente_ids)
-            )
-        resultado = self.session.exec(query).first()
-        return resultado or 0
+            statement = statement.join(ProductoIngrediente).where(ProductoIngrediente.ingrediente_id.in_(ingrediente_ids))
 
-    # Método para obtener productos por categoría con paginación
-    def get_by_category(self, categoria_id: int, offset: int = 0, limit: int = 20) -> list[Producto]:
-        return list(self.session.exec(
-            select(Producto)
-            .join(ProductoCategoria)
-            .where(ProductoCategoria.categoria_id == categoria_id)
-            .where(Producto.deleted_at == None)  # noqa: E712
-            .offset(offset)
-            .limit(limit)
-        ).all())
-
-    # Método para contar productos de una categoría específica
-    def count_by_category(self, categoria_id: int) -> int:
-        resultado = self.session.exec(
-            select(func.count()).select_from(Producto)
-            .join(ProductoCategoria)
-            .where(ProductoCategoria.categoria_id == categoria_id)
-            .where(Producto.deleted_at == None)  # noqa: E712
-        ).first()
-        return resultado or 0
+        return self.session.exec(statement).one()
 
 
-class ProductoCategoriaRepository:
+# ══════════════════════════════════════════════════════
+# REPOSITORIOS INTERMEDIOS (Heredan de BaseRepository)
+# ══════════════════════════════════════════════════════
+class ProductoCategoriaRepository(BaseRepository[ProductoCategoria]):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        super().__init__(session, ProductoCategoria)
 
-    def create(self, instance: ProductoCategoria) -> ProductoCategoria:
-        self.session.add(instance)
-        self.session.flush()
-        self.session.refresh(instance)
-        return instance
 
     def get(self, producto_id: int, categoria_id: int) -> ProductoCategoria | None:
-        return self.session.exec(
-            select(ProductoCategoria)
-            .where(ProductoCategoria.producto_id == producto_id)
-            .where(ProductoCategoria.categoria_id == categoria_id)
-        ).first()
+        return self.session.exec(select(ProductoCategoria).where(ProductoCategoria.producto_id == producto_id).where(ProductoCategoria.categoria_id == categoria_id)).first()
+
 
     def list_by_producto(self, producto_id: int) -> list[ProductoCategoria]:
         return list(
-            self.session.exec(
-                select(ProductoCategoria)
-                .where(ProductoCategoria.producto_id == producto_id)
-                .order_by(cast(Any, ProductoCategoria.categoria_id))
-            ).all()
-        )
+            self.session.exec(select(ProductoCategoria).where(ProductoCategoria.producto_id == producto_id).order_by(cast(Any, ProductoCategoria.categoria_id))).all())
+
 
     def list_by_categoria(self, categoria_id: int) -> list[ProductoCategoria]:
-        return list(
-            self.session.exec(
-                select(ProductoCategoria)
-                .where(ProductoCategoria.categoria_id == categoria_id)
-                .order_by(cast(Any, ProductoCategoria.producto_id))
-            ).all()
-        )
+        return list(self.session.exec(select(ProductoCategoria).where(ProductoCategoria.categoria_id == categoria_id).order_by(cast(Any, ProductoCategoria.producto_id))).all())
 
-    def count_by_producto(self, producto_id: int) -> int:
-        resultado = self.session.exec(
-            select(func.count()).select_from(ProductoCategoria)
-            .where(ProductoCategoria.producto_id == producto_id)
-        ).first()
-        return resultado or 0
-
-    def count_by_categoria(self, categoria_id: int) -> int:
-        resultado = self.session.exec(
-            select(func.count()).select_from(ProductoCategoria)
-            .where(ProductoCategoria.categoria_id == categoria_id)
-        ).first()
-        return resultado or 0
 
     def clear_principal_for_producto(self, producto_id: int, keep_categoria_id: int | None = None) -> None:
         relaciones = self.list_by_producto(producto_id)
@@ -141,49 +101,21 @@ class ProductoCategoriaRepository:
                 continue
             if relacion.es_principal:
                 relacion.es_principal = False
-                self.session.add(relacion)
-        self.session.flush()
-
-    def delete(self, instance: ProductoCategoria) -> None:
-        self.session.delete(instance)
-        self.session.flush()
+                self.update(relacion) 
 
 
-class ProductoIngredienteRepository:
+class ProductoIngredienteRepository(BaseRepository[ProductoIngrediente]):
     def __init__(self, session: Session) -> None:
-        self.session = session
+        super().__init__(session, ProductoIngrediente)
 
-    def create(self, instance: ProductoIngrediente) -> ProductoIngrediente:
-        self.session.add(instance)
-        self.session.flush()
-        self.session.refresh(instance)
-        return instance
 
     def get(self, producto_id: int, ingrediente_id: int) -> ProductoIngrediente | None:
-        return self.session.exec(
-            select(ProductoIngrediente)
-            .where(ProductoIngrediente.producto_id == producto_id)
-            .where(ProductoIngrediente.ingrediente_id == ingrediente_id)
-        ).first()
+        return self.session.exec(select(ProductoIngrediente).where(ProductoIngrediente.producto_id == producto_id).where(ProductoIngrediente.ingrediente_id == ingrediente_id)).first()
+
 
     def list_by_producto(self, producto_id: int) -> list[ProductoIngrediente]:
-        return list(
-            self.session.exec(
-                select(ProductoIngrediente)
-                .where(ProductoIngrediente.producto_id == producto_id)
-                .order_by(cast(Any, ProductoIngrediente.ingrediente_id))
-            ).all()
-        )
+        return list(self.session.exec(select(ProductoIngrediente).where(ProductoIngrediente.producto_id == producto_id).order_by(cast(Any, ProductoIngrediente.ingrediente_id))).all())
+
 
     def list_by_ingrediente(self, ingrediente_id: int) -> list[ProductoIngrediente]:
-        return list(
-            self.session.exec(
-                select(ProductoIngrediente)
-                .where(ProductoIngrediente.ingrediente_id == ingrediente_id)
-                .order_by(cast(Any, ProductoIngrediente.producto_id))
-            ).all()
-        )
-
-    def delete(self, instance: ProductoIngrediente) -> None:
-        self.session.delete(instance)
-        self.session.flush()
+        return list(self.session.exec(select(ProductoIngrediente).where(ProductoIngrediente.ingrediente_id == ingrediente_id).order_by(cast(Any, ProductoIngrediente.producto_id))).all())
