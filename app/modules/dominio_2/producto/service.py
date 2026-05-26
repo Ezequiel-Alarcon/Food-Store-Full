@@ -77,6 +77,11 @@ class ProductoService:
     def create(self, data: ProductoCreate) -> ProductoReadFull:
         with self._uow as uow:
             self._validar_nombre_unico(uow, data.nombre)
+
+            if data.unidad_venta_id is not None:
+                unidad = uow.unidad_medida.get_by_id(data.unidad_venta_id)
+                if not unidad:
+                    raise HTTPException(status_code=404, detail=f"Unidad de medida con ID {data.unidad_venta_id} no encontrada")
             
             # Excluimos las relaciones porque no van en la tabla "productos" directamente
             data_dict = data.model_dump(exclude={"categoria_ids", "ingrediente_ids"})
@@ -160,6 +165,11 @@ class ProductoService:
         with self._uow as uow:
             producto = self._get_or_404(uow, producto_id)
             patch = data.model_dump(exclude_unset=True, exclude={"categoria_ids", "ingrediente_ids"})
+
+            if "unidad_venta_id" in patch and patch["unidad_venta_id"] is not None:
+                unidad = uow.unidad_medida.get_by_id(patch["unidad_venta_id"])
+                if not unidad:
+                    raise HTTPException(status_code=404, detail=f"Unidad de medida con ID {patch['unidad_venta_id']} no encontrada")
 
             if "nombre" in patch and patch["nombre"] != producto.nombre:
                 existente = uow.productos.get_by_name(patch["nombre"])

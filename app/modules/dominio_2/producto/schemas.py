@@ -23,6 +23,9 @@ class ProductoBase(SQLModel):
     nombre: str = Field(..., description="Nombre del producto", max_length=150)
     descripcion: Optional[str] = Field(
         default=None, description="Descripción del producto")
+
+    unidad_venta_id: Optional[int] = Field(default=None, description="ID de la unidad de medida en la que se vende el producto")
+
     precio_base: Decimal = Field(..., description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
         default=None, description="URLs de imágenes del producto")
@@ -51,6 +54,9 @@ class ProductoUpdate(SQLModel):
         default=None, description="Nombre del producto", max_length=150)
     descripcion: Optional[str] = Field(
         default=None, description="Descripción del producto")
+
+    unidad_venta_id: Optional[int] = Field(default=None, description="ID de la unidad de medida en la que se vende el producto")
+
     precio_base: Optional[Decimal] = Field(
         default=None, description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
