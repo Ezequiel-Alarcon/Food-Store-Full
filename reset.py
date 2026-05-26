@@ -3,13 +3,29 @@ from app.core.database import engine
 
 def nuke_database():
     with engine.connect() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS producto_ingrediente CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS producto_categoria CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS productos CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS ingredientes CASCADE;"))
-        conn.execute(text("DROP TABLE IF EXISTS categorias CASCADE;"))
+        conn.execute(text("""
+            DROP TABLE IF EXISTS
+                historial_estado_pedido,
+                detalle_pedido,
+                pagos,
+                pedidos,
+                forma_pago,
+                estado_pedido,
+                producto_ingrediente,
+                producto_categoria,
+                productos,
+                ingredientes,
+                categorias,
+                unidadmedida,
+                refresh_token,
+                direccion_entrega,
+                usuario_rol,
+                usuario,
+                rol
+            CASCADE;
+        """))
         conn.commit()
-    print("💥 Base de datos reseteada.")
+    print("💥Tuki-Base de datos reseteada.")
 
 if __name__ == "__main__":
     nuke_database()

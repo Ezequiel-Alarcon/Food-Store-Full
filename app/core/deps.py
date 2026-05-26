@@ -40,7 +40,6 @@ from app.core.security import decode_access_token  # Función para decodificar J
 # from app.core.unit_of_work import UnitOfWork, get_uow       # Patrón Unit of Work para DB
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork, get_uow # Patrón Unit of Work para DB
 from app.modules.dominio_1.usuario.models import Usuario     # Modelo de dominio Usuario
-from app.modules.dominio_1.usuario.schemas import UserPublic     # Modelo de dominio Usuario
 
 from fastapi import Request
 
