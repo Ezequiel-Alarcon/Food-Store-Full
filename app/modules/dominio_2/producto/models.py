@@ -8,7 +8,9 @@ from app.core.minxins.auditable_mixin import UniqueAuditableMixin
 from sqlalchemy.orm import declared_attr
 
 
+
 if TYPE_CHECKING:
+    from ..UnidadMedida.models import UnidadMedida
     from ..categoria.models import Categoria
     from ..ingrediente.models import Ingrediente
 
@@ -67,6 +69,8 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     #no puede ser nulo
+
+    unidad_venta_id: Optional[int] = Field(default=None, foreign_key="unidades_medida.id", description="Unidad de medida en la que se vende el producto")
     nombre: str = Field(..., description="Nombre del producto", max_length=150)
     descripcion: Optional[str] = Field(default=None, description="Descripción del producto")
     #no puede ser nulo y checar que sea mayor o igual a 0
@@ -95,3 +99,5 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
         back_populates="productos",
         link_model=ProductoIngrediente
     )
+    
+    unidad_venta: Optional["UnidadMedida"] = Relationship()

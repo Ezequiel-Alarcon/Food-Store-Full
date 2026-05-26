@@ -17,6 +17,26 @@ def seed():
 
     with Session(engine) as session:
 
+        # ── Unidades de medida ────────────────────────────────────────────────
+        unidades_medida_seed = [
+            {"nombre": "Kilogramo", "simbolo": "kg", "tipo": "peso"},
+            {"nombre": "Gramo", "simbolo": "g", "tipo": "peso"},
+            {"nombre": "Litro", "simbolo": "L", "tipo": "volumen"},
+            {"nombre": "Mililitro", "simbolo": "mL", "tipo": "volumen"},
+            {"nombre": "Unidad", "simbolo": "u", "tipo": "unidad"},
+            {"nombre": "Docena", "simbolo": "doc", "tipo": "unidad"},
+            {"nombre": "Metro cuadrado", "simbolo": "m²", "tipo": "superficie"},
+        ]
+        for unidad_data in unidades_medida_seed:
+            existente = session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == unidad_data["simbolo"])).first()
+            if not existente:
+                session.add(UnidadMedida(**unidad_data))
+        session.flush()
+
+        unidad = session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == "u")).first()
+        if not unidad:
+            raise RuntimeError("No se encontró la unidad de medida 'u'")
+
         # ── CATEGORÍAS PRINCIPALES ───────────────────────────────────
         hamburguesas = Categoria(
             nombre="Hamburguesas",
@@ -85,6 +105,7 @@ def seed():
             precio_base=Decimal("1500.00"),
             imagenes_url=["https://via.placeholder.com/400x300?text=Clasica"],
             stock_cantidad=50,
+            unidad_venta_id=unidad.id,
         )
         bbq = Producto(
             nombre="Burger BBQ Bacon",
@@ -92,6 +113,7 @@ def seed():
             precio_base=Decimal("1900.00"),
             imagenes_url=["https://via.placeholder.com/400x300?text=BBQ"],
             stock_cantidad=30,
+            unidad_venta_id=unidad.id,
         )
         vegana_prod = Producto(
             nombre="Burger Vegana",
@@ -99,6 +121,7 @@ def seed():
             precio_base=Decimal("1800.00"),
             imagenes_url=["https://via.placeholder.com/400x300?text=Vegana"],
             stock_cantidad=25,
+            unidad_venta_id=unidad.id,
         )
         sin_tacc_prod = Producto(
             nombre="Burger Sin TACC",
@@ -106,36 +129,23 @@ def seed():
             precio_base=Decimal("1700.00"),
             imagenes_url=["https://via.placeholder.com/400x300?text=SinTACC"],
             stock_cantidad=20,
+            unidad_venta_id=unidad.id,
         )
         coca = Producto(
             nombre="Coca-Cola 500ml",
             descripcion="La clásica bien fría.",
             precio_base=Decimal("800.00"),
             stock_cantidad=100,
+            unidad_venta_id=unidad.id,
         )
         limonada = Producto(
             nombre="Limonada Natural",
             descripcion="Exprimida al momento.",
             precio_base=Decimal("700.00"),
             stock_cantidad=60,
+            unidad_venta_id=unidad.id,
         )
         session.add_all([clasica, bbq, vegana_prod, sin_tacc_prod, coca, limonada])
-        session.flush()
-
-        # ── Unidades de medida ────────────────────────────────────────────────
-        unidades_medida_seed = [
-            {"nombre": "Kilogramo", "simbolo": "kg", "tipo": "peso"},
-            {"nombre": "Gramo", "simbolo": "g", "tipo": "peso"},
-            {"nombre": "Litro", "simbolo": "L", "tipo": "volumen"},
-            {"nombre": "Mililitro", "simbolo": "mL", "tipo": "volumen"},
-            {"nombre": "Unidad", "simbolo": "u", "tipo": "unidad"},
-            {"nombre": "Docena", "simbolo": "doc", "tipo": "unidad"},
-            {"nombre": "Metro cuadrado", "simbolo": "m²", "tipo": "superficie"},
-        ]
-        for unidad_data in unidades_medida_seed:
-            existente = session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == unidad_data["simbolo"])).first()
-            if not existente:
-                session.add(UnidadMedida(**unidad_data))
         session.flush()
 
 
