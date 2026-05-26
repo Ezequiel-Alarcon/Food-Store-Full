@@ -5,7 +5,7 @@ from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
 
 class UnidadMedidaRepository(BaseRepository[UnidadMedida]):
     def __init__(self, session: Session) -> None:
-        super().__init__(UnidadMedida, session)
+        super().__init__(session, UnidadMedida)
 
     def get_by_name(self, name: str) -> UnidadMedida | None:
         query = select(UnidadMedida).where(UnidadMedida.nombre == name)

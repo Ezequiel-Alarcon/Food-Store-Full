@@ -224,3 +224,10 @@ class ProductoService:
         with self._uow as uow:
             producto = self._get_or_404(uow, producto_id)
             uow.productos.delete(producto)
+
+    def toggle_disponibilidad(self, producto_id: int) -> ProductoReadFull:
+        with self._uow as uow:
+            producto = self._get_or_404(uow, producto_id)
+            producto.disponible = not producto.disponible
+            uow.productos.update(producto)
+            return self._to_read_full(uow, producto)

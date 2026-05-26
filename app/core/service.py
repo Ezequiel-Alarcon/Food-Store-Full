@@ -28,12 +28,12 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
     def __init__(self, session: Session, uow_instance: UoWType, repo_name: str, model_class: Type[ModelType]):
         self.session = session
         self.uow = uow_instance
-        self.repo = repo_name
-        self.model = model_class
+        self._repo_name = repo_name
+        self.model_class = model_class
 
     @property
     def repo(self) -> BaseRepository[ModelType]:
-        return getattr(self.uow, self.repo)
+        return getattr(self.uow, self._repo_name)
 
     def get_all(self, offset: int = 0, limit: int = 20):
         with self.uow:
@@ -72,5 +72,5 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
         with self.uow:
             item_db = self._get_or_404(item_id)
             self.repo.delete(item_db)
-        return {"message": f"{self.model.__name__} eliminado/a correctamente"}
+        return {"message": f"{self.model_class.__name__} eliminado/a correctamente"}
     

@@ -1,7 +1,6 @@
 from typing import Annotated, Any
 from fastapi import APIRouter, Depends, status
 
-from app.core.database import SessionDep
 from app.core.deps import get_current_active_user, get_uow
 from app.modules.dominio_1.usuario.schemas import UserPublic
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork

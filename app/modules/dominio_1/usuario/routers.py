@@ -1,9 +1,7 @@
 from typing import Annotated, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.core.config import settings
-from app.core.security import create_access_token
 from app.core.deps import get_current_active_user, get_uow, require_role
 from app.modules.dominio_1.usuario.schemas import UserCreate, UserPublic, UserUpdateClient, UserUpdateAdmin,UserPaginationResponse, UserPublicAdminPanel, UserCreateAdmin
 from app.modules.dominio_1.usuario.service import UsuarioService
@@ -40,6 +38,7 @@ def login(
         expires=token_obj.expires_in,
         samesite="lax",
         secure=False, # Poner en True si usás HTTPS en producción
+        path="/"
     )
     return {"mensaje": "Login exitoso", "access_token": token_obj.access_token, "token_type": "bearer"}
 
@@ -80,8 +79,7 @@ admin_router = APIRouter(
 
 @admin_router.post("/createUser", response_model=UserPublicAdminPanel, status_code=status.HTTP_201_CREATED)
 def create_user_by_admin(
-    data: UserCreateAdmin, 
-    current_user: CurrentUser, 
+    data: UserCreateAdmin,
     svc: UsuarioServiceDep
 ) -> Any:
     """El Admin crea un usuario asignándole roles específicos manualmente."""
@@ -94,7 +92,6 @@ def create_user_by_admin(
 
 @admin_router.get("/", response_model=UserPaginationResponse)
 def get_all_users(
-    current_user: CurrentUser,
     svc: UsuarioServiceDep, 
     offset: int = 0, 
     limit: int = 20, 
@@ -104,11 +101,11 @@ def get_all_users(
     return svc.get_all_users(offset=offset, limit=limit, rol_codigo=rol_codigo)
 
 @admin_router.patch("/{user_id}", response_model=UserPublicAdminPanel)
-def update_user_by_admin(user_id: int, data: UserUpdateAdmin, current_user: CurrentUser, svc: UsuarioServiceDep) -> Any:
+def update_user_by_admin(user_id: int, data: UserUpdateAdmin, svc: UsuarioServiceDep) -> Any:
     """El Admin actualiza los datos y/o los roles de cualquier usuario."""
     return svc.update_user_by_admin(user_id, data)
 
 @admin_router.delete("/{user_id}")
-def delete_user(user_id: int, current_user: CurrentUser,svc: UsuarioServiceDep) -> Any:
+def delete_user(user_id: int,svc: UsuarioServiceDep) -> Any:
     """Aplica un borrado lógico (soft delete) a un usuario."""
     return svc.desactivar_usuario(user_id)
