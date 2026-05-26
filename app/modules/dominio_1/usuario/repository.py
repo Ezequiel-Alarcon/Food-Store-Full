@@ -1,17 +1,30 @@
-from typing import Optional
+from typing import Optional, Sequence
 from sqlmodel import select, Session
 from app.modules.dominio_1.usuario.models import Usuario, Rol
 from app.core.repository import BaseRepository
+from app.core.enums import EstadoFiltro
 
 class UsuarioRepository(BaseRepository[Usuario]):
     def __init__(self, session: Session):
         # Le pasamos la sesión y el modelo al BaseRepository
         super().__init__(session, Usuario)
 
-    def get_by_email(self, email: str) -> Optional[Usuario]:
-        """Búsqueda específica de este dominio."""
-        statement = select(Usuario).where(Usuario.email == email).where(Usuario.deleted_at.is_(None))
+
+    def get_by_email(self, email: str, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> Optional[Usuario]:
+        statement = select(Usuario).where(Usuario.email == email)
+        statement = self._filter_state(statement, state)
         return self.session.exec(statement).first()
+    
+    def get_paged_users(self, offset: int = 0, limit: int = 20, rol_codigo: Optional[str] = None, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> Sequence[Usuario]:
+        statement = select(Usuario)
+        statement = self._filter_state(statement, state)
+
+        if rol_codigo:
+            statement = statement.join(Usuario.roles).where(Rol.codigo == rol_codigo)
+
+        statement = statement.order_by(Usuario.created_at.asc()).offset(offset).limit(limit)
+
+        return self.session.exec(statement).all()
 
 
 class RolRepository(BaseRepository[Rol]):

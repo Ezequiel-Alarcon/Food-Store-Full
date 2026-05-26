@@ -15,7 +15,7 @@ from passlib.context import CryptContext
 from app.core.config import settings
 
 # ─── Hashing (bcrypt) ─────────────────────────────────────────────────────────
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 
 def hash_password(plain: str) -> str:
@@ -60,5 +60,6 @@ def decode_access_token(token: str) -> dict | None:
         if payload.get("type") != "access":
             return None
         return payload
-    except JWTError:
+    except JWTError as e:
+        print(f"JWT ERROR: {e}")
         return None
