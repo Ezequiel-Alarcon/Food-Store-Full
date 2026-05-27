@@ -28,12 +28,13 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
     def __init__(self, session: Session, uow_instance: UoWType, repo_name: str, model_class: Type[ModelType]):
         self.session = session
         self.uow = uow_instance
-        self._repo_name = repo_name
-        self.model_class = model_class
+        self._repo = repo_name
+        self.model = model_class
 
     @property
     def repo(self) -> BaseRepository[ModelType]:
-        return getattr(self.uow, self._repo_name)
+        return getattr(self.uow, self._repo)
+
 
     def get_all(self, offset: int = 0, limit: int = 20):
         with self.uow:
@@ -41,22 +42,26 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
             total = self.repo.count_model()
             return {"data": items, "total": total}
         
-    def _get_or_404(self, item_id) -> ModelType:
+
+    def _get_or_404(self, item_id, allow_deleted: bool = False) -> ModelType:
         item = self.repo.get_by_id(item_id)
-        if not item or getattr(item, "deleted_at", None) is not None:
-            raise HTTPException(status_code=404, detail=f"{self.model_class.__name__} no encontrado/a")
+        if not item or (not allow_deleted and getattr(item, "deleted_at", None) is not None):
+            raise HTTPException(status_code=404, detail=f"{self.model.__name__} no encontrado/a")
         return item
 
-    def get_by_id(self, item_id: int | str) -> ModelType:
+
+    def get_by_id(self, item_id: int, allow_deleted: bool = False) -> ModelType:
         with self.uow:
-            return self._get_or_404(item_id)
+            return self._get_or_404(item_id, allow_deleted)
         
+
     def create(self, item_in: CreateSchemaType) -> ModelType:
         with self.uow:
-            nuevo_item = self.model_class(**item_in.model_dump())
+            nuevo_item = self.model(**item_in.model_dump())
             self.repo.add(nuevo_item)
             return nuevo_item
         
+
     def _apply_update_fields(self, item_db: ModelType, item_in: UpdateSchemaType) -> ModelType:
         update_data = item_in.model_dump(exclude_unset=True)
         for key, value in update_data.items():

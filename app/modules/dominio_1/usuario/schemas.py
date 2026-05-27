@@ -19,6 +19,7 @@ class UserCreate(SQLModel):
 class UserCreateAdmin(UserCreate):
     roles_codigos: List[str]
  
+ # Agregar campos: email, password
 class UserUpdateClient(BaseModel):
     nombre: Optional[str] = Field(default=None, max_length=80)
     apellido: Optional[str] = Field(default=None, max_length=80)

@@ -1,66 +1,69 @@
-from typing import Annotated, Optional
-
+from typing import Annotated, Optional, List
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlmodel import Session
 
 from app.core.deps import require_role
 from app.core.database import get_session
+from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.producto.schemas import (
     ProductoCreate,
     ProductoList,
     ProductoReadFull,
     ProductoUpdate
 )
-from app.modules.dominio_2.producto.unit_of_work import ProductoUnitOfWork
 from app.modules.dominio_2.producto.service import ProductoService
 
-router = APIRouter()
+router = APIRouter(tags=["Productos"])
 
 def get_producto_service(session: Session = Depends(get_session)) -> ProductoService:
-    return ProductoService(ProductoUnitOfWork(session))
+    return ProductoService(session)
 
 
 # ══════════════════════════════════════════════════════
-# ENDPOINTS PÚBLICOS (sin autenticación)
+# ENDPOINTS PÚBLICOS (sin autenticación o solo lectura)
 # ══════════════════════════════════════════════════════
 
-@router.get("/", response_model=ProductoList,summary="Listar productos con filtros opcionales")
+@router.get("/", response_model=ProductoList, summary="Buscar y filtrar productos")
 def list_productos(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    include_only_active: Annotated[bool, Query(description="Solo productos disponibles")] = False,
-    categoria_ids: Annotated[Optional[list[int]], Query()] = None,
-    ingrediente_ids: Annotated[Optional[list[int]], Query()] = None,
+    estado: Annotated[EstadoFiltro, Query(description="Filtrar por estado lógico")] = EstadoFiltro.ACTIVO,
+    disponible: Annotated[Optional[bool], Query(description="Filtrar por disponibilidad")] = None,
+    categoria_ids: Annotated[Optional[List[int]], Query(description="Filtrar por múltiples categorías")] = None,
+    ingrediente_ids: Annotated[Optional[List[int]], Query(description="Filtrar por múltiples ingredientes")] = None,
+    q: Annotated[Optional[str], Query(description="Buscar en nombre o descripción")] = None,
     svc: ProductoService = Depends(get_producto_service)
 ):
-    if include_only_active:
-        return svc.get_active(offset=offset, limit=limit, categoria_ids=categoria_ids, ingrediente_ids=ingrediente_ids)
-    return svc.get_all(offset=offset, limit=limit)
+    """
+    Endpoint unificado. Reemplaza todos los métodos de búsqueda anteriores.
+    - Todos los activos: `GET /`
+    - Buscar "burger" disponible: `GET /?q=burger&disponible=true`
+    - Productos de categoría 5: `GET /?categoria_ids=5`
+    """
+    return svc.get_all_productos(
+        offset=offset, 
+        limit=limit, 
+        estado=estado,
+        disponible=disponible,
+        categoria_ids=categoria_ids, 
+        ingrediente_ids=ingrediente_ids,
+        q=q
+    )
 
-
-@router.get("/categoria/{categoria_id}", response_model=ProductoList,summary="Listar productos por categoría")
-def list_productos_by_categoria(
-    categoria_id: Annotated[int, Path(ge=1)],
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    svc: ProductoService = Depends(get_producto_service)
-):
-    return svc.get_by_category(categoria_id=categoria_id, offset=offset, limit=limit)
-
-
-@router.get("/{producto_id}", response_model=ProductoReadFull,summary="Obtener producto por ID")
+@router.get("/{producto_id}", response_model=ProductoReadFull, summary="Obtener producto por ID")
 def get_producto(
     producto_id: Annotated[int, Path(ge=1)],
+    include_deleted: Annotated[bool, Query(description="Permitir ver el registro aunque esté eliminado")] = False,
     svc: ProductoService = Depends(get_producto_service)
 ):
-    return svc.get_by_id(producto_id)
+    return svc.get_by_id_full(producto_id, allow_deleted=include_deleted)
 
 
 # ══════════════════════════════════════════════════════
 # ENDPOINTS PRIVADOS (requieren rol)
 # ══════════════════════════════════════════════════════
 
-@router.post("/", response_model=ProductoReadFull, status_code=status.HTTP_201_CREATED,summary="Crear producto",dependencies=[Depends(require_role(["ADMIN"]))])
+@router.post("/", response_model=ProductoReadFull, status_code=status.HTTP_201_CREATED, summary="Crear producto", dependencies=[Depends(require_role(["ADMIN"]))])
 def create_producto(
     data: ProductoCreate,
     svc: ProductoService = Depends(get_producto_service)
@@ -68,7 +71,7 @@ def create_producto(
     return svc.create(data)
 
 
-@router.patch("/{producto_id}", response_model=ProductoReadFull,summary="Actualizar producto",dependencies=[Depends(require_role(["ADMIN"]))])
+@router.patch("/{producto_id}", response_model=ProductoReadFull, summary="Actualizar producto", dependencies=[Depends(require_role(["ADMIN"]))])
 def update_producto(
     producto_id: Annotated[int, Path(ge=1)],
     data: ProductoUpdate,
@@ -77,7 +80,7 @@ def update_producto(
     return svc.update(producto_id, data)
 
 
-@router.patch("/{producto_id}/disponibilidad", response_model=ProductoReadFull,summary="Activar/desactivar disponibilidad",dependencies=[Depends(require_role(["ADMIN", "STOCK"]))])
+@router.patch("/{producto_id}/disponibilidad", response_model=ProductoReadFull, summary="Activar/desactivar disponibilidad", dependencies=[Depends(require_role(["ADMIN", "STOCK"]))])
 def toggle_disponibilidad(
     producto_id: Annotated[int, Path(ge=1)],
     svc: ProductoService = Depends(get_producto_service)
@@ -85,9 +88,10 @@ def toggle_disponibilidad(
     return svc.toggle_disponibilidad(producto_id)
 
 
-@router.delete("/{producto_id}", status_code=status.HTTP_204_NO_CONTENT,summary="Eliminar producto",dependencies=[Depends(require_role(["ADMIN"]))])
+@router.delete("/{producto_id}", status_code=status.HTTP_200_OK, summary="Eliminar producto", dependencies=[Depends(require_role(["ADMIN"]))])
 def delete_producto(
     producto_id: Annotated[int, Path(ge=1)],
     svc: ProductoService = Depends(get_producto_service)
 ):
+    # El delete genérico del padre maneja el 404, hace el Soft Delete y devuelve el mensaje de éxito
     return svc.delete(producto_id)

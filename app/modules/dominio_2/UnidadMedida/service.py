@@ -1,76 +1,59 @@
-from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
 from fastapi import HTTPException
+from typing import Optional
+from sqlmodel import Session
 
 from app.core.enums import EstadoFiltro
-from app.modules.dominio_2.UnidadMedida.schemas import (
-    UnidadMedidaCreate,
-    UnidadMedidaRead,
-    UnidadMedidaUpdate,
-)
+from app.core.service import base_service
+from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
+from app.modules.dominio_2.UnidadMedida.schemas import UnidadMedidaCreate, UnidadMedidaUpdate, UnidadMedidaRead
 from app.modules.dominio_2.UnidadMedida.unit_of_work import UnidadMedidaUnitOfWork
 
-class UnidadMedidaService:
-    def __init__(self, uow: UnidadMedidaUnitOfWork) -> None:
-        self.uow = uow
-    
-    def get_or_404(self, unidad_medida_id: int, uow: UnidadMedidaUnitOfWork) -> UnidadMedida:
-        unidad = uow.unidades_medida.get_by_id(unidad_medida_id)
-        if not unidad:
-            raise HTTPException(status_code=404, detail=f"Unidad de medida con ID {unidad_medida_id} no encontrada")
-        return unidad
+class UnidadMedidaService(base_service[UnidadMedida, UnidadMedidaCreate, UnidadMedidaUpdate, UnidadMedidaUnitOfWork]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(
+            session, 
+            UnidadMedidaUnitOfWork(session), 
+            "unidades_medida", 
+            UnidadMedida
+        )
 
-    def validar_nombre_unico(self, nombre: str, uow: UnidadMedidaUnitOfWork) -> None:
-        nombre = uow.unidades_medida.get_by_name(nombre)
+    # ── Reglas de Negocio ───────────────────────────────────────────────────
+    def _validar_unicidad(self, nombre: Optional[str] = None, simbolo: Optional[str] = None, exclude_id: Optional[int] = None) -> None:
         if nombre:
-            raise HTTPException(status_code=400, detail=f"El nombre '{nombre}' ya está en uso por otra unidad de medida")
-
-    def validar_simbolo_unico(self, simbolo: str, uow: UnidadMedidaUnitOfWork) -> None:
-        simbolo = uow.unidades_medida.get_by_simbolo(simbolo)
+            existente = self.repo.get_by_nombre(nombre, include_deleted=True)
+            if existente and existente.id != exclude_id:
+                raise HTTPException(status_code=400, detail=f"El nombre '{nombre}' ya está en uso por otra unidad de medida")
+        
         if simbolo:
-            raise HTTPException(status_code=400, detail=f"El simbolo '{simbolo}' ya está en uso por otra unidad de medida")
+            existente = self.repo.get_by_simbolo(simbolo, include_deleted=True)
+            if existente and existente.id != exclude_id:
+                raise HTTPException(status_code=400, detail=f"El simbolo '{simbolo}' ya está en uso por otra unidad de medida")
 
-    def create(self, data: UnidadMedidaCreate) -> UnidadMedidaRead:
-        with self.uow as uow:
-            self.validar_nombre_unico(data.nombre, uow)
-            self.validar_simbolo_unico(data.simbolo, uow)
-            
-            nueva_unidad = UnidadMedida.model_validate(data)
-            uow.unidades_medida.add(nueva_unidad)
-
-            return UnidadMedidaRead.model_validate(nueva_unidad)
-
-    def get_all(self, offset: int = 0, limit: int = 20):
-        with self.uow as uow:
-            unidades = uow.unidades_medida.get_all_by_state(EstadoFiltro.ACTIVO, offset, limit)
-            total = uow.unidades_medida.count_model(EstadoFiltro.ACTIVO)
-            return {"data": [UnidadMedidaRead.model_validate(unidad) for unidad in unidades], "total": total}
+    # ── Overrides del Service Genérico ──────────────────────────────────────
     
-    def get_by_id(self, unidad_id: int) -> UnidadMedidaRead:
-        with self.uow as uow:
-            unidad = self.get_or_404(unidad_id, uow)
-            return UnidadMedidaRead.model_validate(unidad)
+    def get_all_unidades(self, offset: int = 0, limit: int = 20, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
+        with self.uow:
+            items = self.repo.get_all_by_state(state=estado, offset=offset, limit=limit)
+            total = self.repo.count_model(state=estado)
+            return {"data": items, "total": total}
 
-    def update(self, unidad_id: int, data: UnidadMedidaUpdate) -> UnidadMedidaRead:
-        with self.uow as uow:
-            unidad = self.get_or_404(unidad_id, uow)
-            patch = data.model_dump(exclude_unset=True)
+    def create(self, item_in: UnidadMedidaCreate) -> UnidadMedidaRead:
+        with self.uow:
+            self._validar_unicidad(nombre=item_in.nombre, simbolo=item_in.simbolo)
+            nuevo_item = super().create(item_in)
+            return UnidadMedidaRead.model_validate(nuevo_item)
 
-            if "nombre" in patch and patch["nombre"] != unidad.nombre:
-                existente = uow.unidades_medida.get_by_name(patch["nombre"])
-                if existente and existente.id != unidad_id:
-                    raise HTTPException(status_code=400, detail=f"El nombre '{patch['nombre']}' ya está en uso por otra unidad de medida")
+    def update(self, item_id: int, item_in: UnidadMedidaUpdate) -> UnidadMedidaRead:
+        with self.uow:
+            item_db = self._get_or_404(item_id)
             
-            if "simbolo" in patch and patch["simbolo"] != unidad.simbolo:
-                existente = uow.unidades_medida.get_by_simbolo(patch["simbolo"])
-                if existente and existente.id != unidad_id:
-                    raise HTTPException(status_code=400, detail=f"El simbolo '{patch['simbolo']}' ya está en uso por otra unidad de medida")
-            
-            for field, value in patch.items():
-                setattr(unidad, field, value)
-            uow.unidades_medida.update(unidad)
-            return UnidadMedidaRead.model_validate(unidad)
+            # Validamos unicidad, si enviaron un dato nuevo y distinto al actual
+            if item_in.nombre and item_in.nombre != item_db.nombre:
+                self._validar_unicidad(nombre=item_in.nombre, exclude_id=item_id)
+            if item_in.simbolo and item_in.simbolo != item_db.simbolo:
+                self._validar_unicidad(simbolo=item_in.simbolo, exclude_id=item_id)
 
-    def delete(self, unidad_id: int) -> None:
-        with self.uow as uow:
-            unidad = self.get_or_404(unidad_id, uow)
-            uow.unidades_medida.delete(unidad)
+            item_actualizado = self._apply_update_fields(item_db, item_in)
+            self.repo.update(item_actualizado)
+            
+            return UnidadMedidaRead.model_validate(item_actualizado)

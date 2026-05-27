@@ -1,7 +1,10 @@
 from fastapi import HTTPException
-from typing import cast
+from typing import cast, Optional
+from sqlmodel import Session
 
 from app.core.enums import EstadoFiltro
+# IMPORTANTE: Acá importás tu base_service desde donde lo tengas
+from app.core.service import base_service 
 from app.modules.dominio_2.ingrediente.models import Ingrediente
 from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteCreate,
@@ -12,36 +15,28 @@ from app.modules.dominio_2.ingrediente.schemas import (
 )
 from app.modules.dominio_2.ingrediente.unit_of_work import IngredienteUnitOfWork
 
+class IngredienteService(base_service[Ingrediente, IngredienteCreate, IngredienteUpdate, IngredienteUnitOfWork]):
+    def __init__(self, session: Session) -> None:
+        super().__init__(
+            session=session, 
+            uow_instance=IngredienteUnitOfWork(session), 
+            repo_name="ingredientes", 
+            model_class=Ingrediente
+        )
 
-class IngredienteService:
-    def __init__(self, uow: IngredienteUnitOfWork) -> None:
-        self._uow = uow
-
-    # ── Helpers privados ─────────────────────────────────────────────────────
-    def _get_or_404(self, uow: IngredienteUnitOfWork, ingrediente_id: int) -> Ingrediente:
-        ingrediente = uow.ingredientes.get_by_id(ingrediente_id)
-        if not ingrediente:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Ingrediente con ID {ingrediente_id} no encontrado"
-            )
-        return ingrediente
-
-    def _validar_nombre_unico(self, uow: IngredienteUnitOfWork, name: str) -> None:
-        ingrediente = uow.ingredientes.get_by_name(name, include_deleted=True)
-        if ingrediente:
+    # ── Reglas de Negocio Específicas ────────────────────────────────────────
+    def _validar_nombre_unico(self, name: str, exclude_id: Optional[int] = None) -> None:
+        existente = self.repo.get_by_name(name, include_deleted=True)
+        if existente and existente.id != exclude_id:
             raise HTTPException(
                 status_code=400,
                 detail=f"El nombre '{name}' ya está en uso por otro ingrediente"
             )
 
-    # ── Métodos públicos ───────────────────────────────────────────────────
-
     def _to_read_full(self, ingrediente: Ingrediente) -> IngredienteReadFull:
         productos = [
-            ProductoBasicRead(id=cast(int, producto.id), nombre=producto.nombre)
-            for producto in ingrediente.productos
-            if producto.deleted_at is None
+            ProductoBasicRead(id=cast(int, p.id), nombre=p.nombre)
+            for p in ingrediente.productos if p.deleted_at is None
         ]
         return IngredienteReadFull(
             id=cast(int, ingrediente.id),
@@ -51,52 +46,35 @@ class IngredienteService:
             productos=productos,
         )
 
-    def create(self, data: IngredienteCreate) -> IngredienteRead:
-        with self._uow as uow:
-            self._validar_nombre_unico(uow, data.nombre)
-            nuevo_ingrediente = Ingrediente.model_validate(data)
-            uow.ingredientes.add(nuevo_ingrediente)
-            return IngredienteRead.model_validate(nuevo_ingrediente)
-
-    def get_all(self, offset: int = 0, limit: int = 20):
-        with self._uow as uow:
-            ingredientes = uow.ingredientes.get_all_by_state(EstadoFiltro.ACTIVO, offset, limit)
-            total = uow.ingredientes.count_model(EstadoFiltro.ACTIVO)
-            resultado = {"data": [self._to_read_full(i) for i in ingredientes], "total": total}
-            return resultado
-
-    def get_alergenos(self, offset: int = 0, limit: int = 20):
-        with self._uow as uow:
-            ingredientes = uow.ingredientes.get_alergenos(offset, limit)
-            total = uow.ingredientes.count_alergenos()
-            resultado = {"data": [self._to_read_full(i) for i in ingredientes], "total": total}
-            return resultado
+    # ── Overrides del Service Genérico ───────────────────────────────────────
     
-    def get_by_id(self, ingrediente_id: int) -> IngredienteReadFull:
-        with self._uow as uow:
-            ingrediente = self._get_or_404(uow, ingrediente_id)
-            return self._to_read_full(ingrediente)
-    
-    def update(self, ingrediente_id: int, data: IngredienteUpdate) -> IngredienteRead:
-        with self._uow as uow:
-            ingrediente = self._get_or_404(uow, ingrediente_id)
-            patch = data.model_dump(exclude_unset=True)
+    def get_all_ingredientes(self, offset: int = 0, limit: int = 20, is_alergeno: Optional[bool] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO ):
+        with self.uow:
+            items = self.repo.get_all_filtered(estado, is_alergeno, offset, limit)
+            total = self.repo.count_filtered(estado, is_alergeno)
+            return {"data": [self._to_read_full(i) for i in items], "total": total}
 
-            if "nombre" in patch and patch["nombre"] != ingrediente.nombre:
-                existente = uow.ingredientes.get_by_name(patch["nombre"])
-                if existente and existente.id != ingrediente_id:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"El nombre '{patch['nombre']}' ya está en uso por otro ingrediente"
-                    )
+    def get_by_id_full(self, ingrediente_id: int, allow_deleted: bool = False) -> IngredienteReadFull:
+        with self.uow:
+            item = self._get_or_404(ingrediente_id, allow_deleted)
+            return self._to_read_full(item)
+        
 
-            for field, value in patch.items():
-                setattr(ingrediente, field, value)
+    def create(self, item_in: IngredienteCreate) -> IngredienteRead:
+        with self.uow:
+            self._validar_nombre_unico(item_in.nombre)
+            nuevo_item = super().create(item_in) 
+            return IngredienteRead.model_validate(nuevo_item)
+        
 
-            uow.ingredientes.update(ingrediente)
-            return IngredienteRead.model_validate(ingrediente)
+    def update(self, item_id: int, item_in: IngredienteUpdate) -> IngredienteRead:
+        with self.uow:
+            item_db = self._get_or_404(item_id)
+            
+            if item_in.nombre and item_in.nombre != item_db.nombre:
+                self._validar_nombre_unico(item_in.nombre, exclude_id=item_id)
 
-    def delete(self, ingrediente_id: int) -> None:
-        with self._uow as uow:
-            ingrediente = self._get_or_404(uow, ingrediente_id)
-            uow.ingredientes.delete(ingrediente)
+            item_actualizado = self._apply_update_fields(item_db, item_in)
+            self.repo.update(item_actualizado)
+            
+            return IngredienteRead.model_validate(item_actualizado)

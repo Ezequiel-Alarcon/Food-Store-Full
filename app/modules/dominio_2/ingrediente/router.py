@@ -1,5 +1,4 @@
-from typing import Annotated
-
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlmodel import Session
 
@@ -12,51 +11,50 @@ from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteReadFull,
     IngredienteUpdate
 )
-from app.modules.dominio_2.ingrediente.unit_of_work import IngredienteUnitOfWork
 from app.modules.dominio_2.ingrediente.service import IngredienteService
+from app.core.enums import EstadoFiltro
 
 router = APIRouter()
 
-# ── Factory: inyecta el Service con la Session ──────────────────────────
 def get_ingrediente_service(session: Session = Depends(get_session)) -> IngredienteService:
-    return IngredienteService(IngredienteUnitOfWork(session))
+    return IngredienteService(session)
 
 # ── Endpoints ───────────────────────────────────────────────────────────
-@router.post("/", response_model=IngredienteRead, status_code=status.HTTP_201_CREATED,summary="Crear ingrediente",dependencies=[Depends(require_role(["ADMIN"]))])
+
+@router.post("/", response_model=IngredienteRead, status_code=status.HTTP_201_CREATED, summary="Crear ingrediente", dependencies=[Depends(require_role(["ADMIN"]))])
 def create_ingrediente(data: IngredienteCreate, svc: IngredienteService = Depends(get_ingrediente_service)):
     return svc.create(data)
 
-@router.get("/",response_model=IngredienteList,summary="Listar todos los ingredientes (paginado)")
+@router.get("/", response_model=IngredienteList, summary="Listar ingredientes (paginado y filtrado)")
 def list_ingredientes(
-    offset: Annotated[int, Query(ge=0, description="Índice de inicio")] = 0,
-    limit: Annotated[int, Query(ge=1, le=100, description="Cantidad máxima")] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    estado: Annotated[EstadoFiltro, Query(description="Filtrar por estado (activo/eliminado)")] = EstadoFiltro.ACTIVO,
+    is_alergeno: Annotated[Optional[bool], Query(description="Filtrar por alérgeno (true/false)")] = None,
     svc: IngredienteService = Depends(get_ingrediente_service)
 ):
-    return svc.get_all(offset=offset, limit=limit)
+    # ¡Unificamos dos endpoints en uno solo!
+    return svc.get_all_ingredientes(offset=offset, limit=limit, is_alergeno=is_alergeno, estado=estado)
 
-@router.get("/alergenos",response_model=IngredienteList,summary="Listar todos los ingredientes alérgenos")
-def list_ingredientes_alergenos(
-    offset: Annotated[int, Query(ge=0, description="Índice de inicio")] = 0,
-    limit: Annotated[int, Query(ge=1, le=100, description="Cantidad máxima")] = 20,
-    svc: IngredienteService = Depends(get_ingrediente_service)
-):
-    return svc.get_alergenos(offset=offset, limit=limit)
-
-@router.get("/{ingrediente_id}",response_model=IngredienteReadFull,summary="Obtener ingrediente por ID")
+@router.get("/{ingrediente_id}", response_model=IngredienteReadFull, summary="Obtener ingrediente")
 def get_ingrediente(
-    ingrediente_id: Annotated[int, Path(ge=1, description="ID del ingrediente")],
+    ingrediente_id: Annotated[int, Path(ge=1)],
+    incluir_eliminado: Annotated[bool, Query(description="Permitir ver el registro aunque esté eliminado")] = False,
     svc: IngredienteService = Depends(get_ingrediente_service)
 ):
-    return svc.get_by_id(ingrediente_id)
+    return svc.get_by_id_full(ingrediente_id, allow_deleted=incluir_eliminado)
 
-@router.patch("/{ingrediente_id}", response_model=IngredienteRead,
-    summary="Actualizar un ingrediente (parcial)",
-    dependencies=[Depends(require_role(["ADMIN"]))])
-def update_ingrediente(ingrediente_id: Annotated[int, Path(ge=1)], data: IngredienteUpdate, svc: IngredienteService = Depends(get_ingrediente_service)):
+@router.patch("/{ingrediente_id}", response_model=IngredienteRead, summary="Actualizar ingrediente", dependencies=[Depends(require_role(["ADMIN"]))])
+def update_ingrediente(
+    ingrediente_id: Annotated[int, Path(ge=1)], 
+    data: IngredienteUpdate, 
+    svc: IngredienteService = Depends(get_ingrediente_service)
+):
     return svc.update(ingrediente_id, data)
 
-@router.delete("/{ingrediente_id}", status_code=status.HTTP_204_NO_CONTENT,
-    summary="Eliminar un ingrediente",
-    dependencies=[Depends(require_role(["ADMIN"]))])
-def delete_ingrediente(ingrediente_id: Annotated[int, Path(ge=1)], svc: IngredienteService = Depends(get_ingrediente_service)):
+@router.delete("/{ingrediente_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar ingrediente", dependencies=[Depends(require_role(["ADMIN"]))])
+def delete_ingrediente(
+    ingrediente_id: Annotated[int, Path(ge=1)], 
+    svc: IngredienteService = Depends(get_ingrediente_service)
+):
     return svc.delete(ingrediente_id)

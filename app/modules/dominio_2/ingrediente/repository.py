@@ -1,45 +1,41 @@
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select, func
+from typing import Optional
 from app.core.repository import BaseRepository
+from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.ingrediente.models import Ingrediente
-
 
 class IngredienteRepository(BaseRepository[Ingrediente]):
     def __init__(self, session: Session) -> None:
         super().__init__(session, Ingrediente)
 
-    # Función auxiliar para obtener ingredientes por nombre
-    def get_by_name(self, name: str, include_deleted: bool = False) -> Ingrediente | None:
+    def get_by_name(self, name: str, include_deleted: bool = False) -> Optional[Ingrediente]:
         query = select(Ingrediente).where(Ingrediente.nombre == name)
         if not include_deleted:
             query = query.where(Ingrediente.deleted_at.is_(None))
         return self.session.exec(query).first()
 
-    def get_alergenos(self, offset: int = 0, limit: int = 20) -> list[Ingrediente]:
-        return list(
-            self.session.exec(
-                select(Ingrediente)
-                .where(Ingrediente.es_alergeno == True)  # noqa: E712
-                .where(Ingrediente.deleted_at == None)  # noqa: E712
-                .offset(offset)
-                .limit(limit)
-            ).all()
-        )
-    
-    def count_alergenos(self) -> int:
-        resultado = self.session.exec(
-            select(func.count()).select_from(Ingrediente)
-            .where(Ingrediente.es_alergeno == True) # noqa: E712
-            .where(Ingrediente.deleted_at == None)  # noqa: E712
-        ).first()
-        return resultado or 0
-    
-    def get_no_alergenos(self, offset: int = 0, limit: int = 20) -> list[Ingrediente]:
-        return list(
-            self.session.exec(
-                select(Ingrediente)
-                .where(Ingrediente.es_alergeno == False)  # noqa: E712
-                .where(Ingrediente.deleted_at == None)  # noqa: E712
-                .offset(offset)
-                .limit(limit)
-            ).all()
-        )
+    # Unificamos las búsquedas usando el generico + filtro específico
+    def get_all_filtered(
+        self, 
+        state: EstadoFiltro = EstadoFiltro.ACTIVO, 
+        is_alergeno: Optional[bool] = None, 
+        offset: int = 0, 
+        limit: int = 20
+    ) -> list[Ingrediente]:
+        statement = select(Ingrediente)
+        statement = self._filter_state(statement, state)
+        
+        if is_alergeno is not None:
+            statement = statement.where(Ingrediente.es_alergeno == is_alergeno)
+            
+        statement = statement.order_by(Ingrediente.id.asc())
+        return list(self.session.exec(statement.offset(offset).limit(limit)).all())
+
+    def count_filtered(self, state: EstadoFiltro = EstadoFiltro.ACTIVO, is_alergeno: Optional[bool] = None) -> int:
+        statement = select(func.count()).select_from(Ingrediente)
+        statement = self._filter_state(statement, state)
+        
+        if is_alergeno is not None:
+            statement = statement.where(Ingrediente.es_alergeno == is_alergeno)
+            
+        return self.session.exec(statement).one()
