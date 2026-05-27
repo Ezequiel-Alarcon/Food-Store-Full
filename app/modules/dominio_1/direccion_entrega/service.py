@@ -12,12 +12,10 @@ from app.modules.dominio_1.direccion_entrega.repository import DireccionReposito
 class DireccionService(base_service[DireccionEntrega, DireccionCreate, DireccionUpdate, UsuarioUnitOfWork]):
     def __init__(self, session: Session):
         uow = UsuarioUnitOfWork(session)
-        super().__init__(
-            session=session,
-            uow_instance=uow,
-            repo_name="direcciones",
-            model_class=DireccionEntrega
-        )
+        self.session = session
+        self.uow = uow
+        self._repo_name = "direcciones"
+        self.model_class = DireccionEntrega
 
     @property
     def repo(self) -> DireccionRepository:

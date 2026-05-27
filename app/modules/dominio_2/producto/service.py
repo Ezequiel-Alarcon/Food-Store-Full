@@ -138,6 +138,11 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             producto = self._get_or_404(producto_id)
             patch = data.model_dump(exclude_unset=True, exclude={"categoria_ids", "ingrediente_ids"})
 
+            if "unidad_venta_id" in patch and patch["unidad_venta_id"] is not None:
+                unidad = uow.unidad_medida.get_by_id(patch["unidad_venta_id"])
+                if not unidad:
+                    raise HTTPException(status_code=404, detail=f"Unidad de medida con ID {patch['unidad_venta_id']} no encontrada")
+
             if "nombre" in patch and patch["nombre"] != producto.nombre:
                 self._validar_nombre_unico(patch["nombre"], exclude_id=producto_id)
 
