@@ -15,9 +15,10 @@ class DetallePedido(SQLModel, table=True):
         CheckConstraint("subtotal_snapshot >= 0", name="chk_detalle_subtotal_positivo")
     )
 
-#============== PK compuesta ================ 
-    pedido_id: int = Field(sa_column=Column(Integer, ForeignKey("pedidos.id", ondelete="CASCADE"), primary_key=True, nullable=False))
-    producto_id: int = Field(sa_column=Column(Integer, ForeignKey("productos.id", ondelete="RESTRICT"), primary_key=True, nullable=False))
+#============== PK ================ 
+    id: Optional[int] = Field(default=None, primary_key=True)
+    pedido_id: int = Field(sa_column=Column(Integer, ForeignKey("pedidos.id", ondelete="CASCADE"), nullable=False))
+    producto_id: int = Field(sa_column=Column(Integer, ForeignKey("productos.id", ondelete="RESTRICT"), nullable=False))
 
 #============== Atributos ================ 
     cantidad: int = Field(sa_column=Column(SmallInteger, nullable=False))

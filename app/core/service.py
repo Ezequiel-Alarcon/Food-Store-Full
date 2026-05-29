@@ -77,5 +77,5 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
         with self.uow:
             item_db = self._get_or_404(item_id)
             self.repo.delete(item_db)
-        return {"message": f"{self.model_class.__name__} eliminado/a correctamente"}
+        return {"message": f"{self.model.__name__} eliminado/a correctamente"}
     

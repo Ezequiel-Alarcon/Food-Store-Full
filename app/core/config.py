@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     SECRET_KEY: Optional[str] = None
     ALGORITHM: Optional[str] = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: Optional[int] = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     @model_validator(mode="after")
     def fix_database_url(self):
@@ -19,7 +20,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="forbid" 
+        # 'forbid' detecta variables de entorno desconocidas y falla rápido,
+        # evitando que typos en el .env pasen desapercibidos (ej: DATABASE_URLL)
     )
 
 settings = Settings()

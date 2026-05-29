@@ -119,7 +119,7 @@ class UsuarioService:
 
             # 2. Refresh Token
             token_hash = hashlib.sha256(access_token.encode()).hexdigest()
-            expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
             nuevo_rt = RefreshToken(
                 usuario_id=user.id,

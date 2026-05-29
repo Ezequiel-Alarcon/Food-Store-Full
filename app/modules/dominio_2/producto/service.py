@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from typing import Optional, cast, List
+from typing import Optional, cast
 from sqlmodel import Session
 
 from app.core.enums import EstadoFiltro
@@ -139,16 +139,15 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             patch = data.model_dump(exclude_unset=True, exclude={"categoria_ids", "ingrediente_ids"})
 
             if "unidad_venta_id" in patch and patch["unidad_venta_id"] is not None:
-                unidad = uow.unidad_medida.get_by_id(patch["unidad_venta_id"])
+                unidad = self.uow.unidad_medida.get_by_id(patch["unidad_venta_id"])
                 if not unidad:
                     raise HTTPException(status_code=404, detail=f"Unidad de medida con ID {patch['unidad_venta_id']} no encontrada")
 
             if "nombre" in patch and patch["nombre"] != producto.nombre:
                 self._validar_nombre_unico(patch["nombre"], exclude_id=producto_id)
 
-            for field, value in patch.items():
-                setattr(producto, field, value)
-            self.repo.update(producto)
+            producto_actualizado = self._apply_update_fields(producto, data)
+            self.repo.update(producto_actualizado)
                 
             
             if data.categoria_ids is not None:

@@ -32,5 +32,7 @@ class RolRepository(BaseRepository[Rol]):
         super().__init__(session, Rol)
 
     def get_by_codigo(self, codigo: str) -> Optional[Rol]:
-
-        return self.session.get(Rol, codigo)
+        #return self.session.get(Rol, codigo)
+        """Busca por el campo 'codigo', no por PK. Retorna None si está eliminado."""
+        statement = select(Rol).where(Rol.codigo == codigo)
+        return self.session.exec(statement).first()

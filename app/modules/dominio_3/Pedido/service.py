@@ -35,12 +35,16 @@ class PedidoService:
                 mensaje="Estado inicial no configurado",
                 status_code=500,
             )
-            producto_ids = [item.producto_id for item in data.items]
-            if len(producto_ids) != len(set(producto_ids)):
-                raise HTTPException(
-                    status_code=400,
-                    detail="No puede pedir dos veces el mismo producto",
-                )
+            items_unicos = set()
+            for item in data.items:
+                pers = tuple(sorted(item.personalizacion)) if item.personalizacion else tuple()
+                identificador = (item.producto_id, pers)
+                if identificador in items_unicos:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="No puede pedir dos veces el mismo producto con la misma personalización",
+                    )
+                items_unicos.add(identificador)
             subtotal = Decimal("0.00")
             detalles_creados = []
             for item in data.items:

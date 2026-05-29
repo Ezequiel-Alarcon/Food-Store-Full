@@ -174,7 +174,7 @@ def require_role(allowed_roles: list[str]):
         has_permission = any(role in allowed_roles for role in user_role_codes)
         if not has_permission:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
                     f"Permisos insuficientes. Tus roles son: {user_role_codes}."
                     f"Se requiere al menos uno de: {allowed_roles}"
