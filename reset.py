@@ -25,7 +25,7 @@ def nuke_database():
             CASCADE;
         """))
         conn.commit()
-    print("💥Tuki-Base de datos reseteada.")
+    print("[OK] Tuki-Base de datos reseteada.")
 
 if __name__ == "__main__":
     nuke_database()
