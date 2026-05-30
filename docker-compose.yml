@@ -1,8 +1,10 @@
 services:
   db:
     image: postgres:15
-    env_file:
-      - .env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: foodstore
     ports:
       - "5433:5432"
     volumes:
