@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response, status, Query
 from sqlmodel import Session
 
 from app.core.database import get_session
 from app.core.deps import get_current_active_user, require_role
 from app.modules.dominio_1.usuario.schemas import UserPublic
-from app.modules.dominio_3.Pedido.schemas import PedidoCambioEstado, PedidoCreate, PedidoReadFull
+from app.modules.dominio_3.Pedido.schemas import PedidoCambioEstado, PedidoCreate, PedidoReadFull, PedidoList
 from app.modules.dominio_3.HistorialEstadoPedido.schemas import HistorialEstadoPedidoRead
 from app.modules.dominio_3.Pedido.service import PedidoService
 from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
@@ -32,12 +32,14 @@ def crear_pedido(
     return service.crear_pedido(data, current_user.id)
 
 
-@router.get("/mis-pedidos", response_model=list[PedidoReadFull],dependencies=[Depends(require_role(["CLIENT"]))])
+@router.get("/mis-pedidos", response_model=PedidoList,dependencies=[Depends(require_role(["CLIENT"]))])
 def obtener_mis_pedidos(
     current_user: CurrentUser,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     service: PedidoService = Depends(get_pedido_service),
-) -> list[PedidoReadFull]:
-    return service.obtener_pedidos_por_usuario(current_user.id)
+) -> PedidoList:
+    return service.obtener_pedidos_por_usuario(current_user.id, offset, limit)
 
 
 @router.get("/mis-pedidos/{pedido_id}", response_model=PedidoReadFull,dependencies=[Depends(require_role(["CLIENT"]))])
@@ -63,11 +65,13 @@ def cancelar_mi_pedido(
 # ADMIN / PEDIDOS — visibilidad y gestión total
 # ══════════════════════════════════════════════════════
 
-@router.get("/", response_model=list[PedidoReadFull],dependencies=[Depends(require_role(["ADMIN", "PEDIDOS"]))])
+@router.get("/", response_model=PedidoList,dependencies=[Depends(require_role(["ADMIN", "PEDIDOS"]))])
 def obtener_todos_los_pedidos(
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     service: PedidoService = Depends(get_pedido_service),
-) -> list[PedidoReadFull]:
-    return service.obtener_todos_los_pedidos()
+) -> PedidoList:
+    return service.obtener_todos_los_pedidos(offset, limit)
 
 
 @router.get("/{pedido_id}", response_model=PedidoReadFull,dependencies=[Depends(require_role(["ADMIN", "PEDIDOS"]))])

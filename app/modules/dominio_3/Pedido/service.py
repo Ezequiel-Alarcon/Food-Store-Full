@@ -10,8 +10,12 @@ from app.modules.dominio_3.Pedido.schemas import (
     PedidoCambioEstado,
     PedidoCreate,
     PedidoReadFull,
+    PedidoList,
+    PedidoRead
 )
 from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
+
+
 class PedidoService:
     ESTADO_INICIAL = "PENDIENTE"
     DESCUENTO_INICIAL = Decimal("0.00")
@@ -24,8 +28,10 @@ class PedidoService:
         "ENTREGADO": set(),
         "CANCELADO": set(),
     }
+
     def __init__(self, uow: PedidoUnitOfWork):
         self._uow = uow
+
     def crear_pedido(self, data: PedidoCreate, usuario_id: int) -> PedidoReadFull:
         with self._uow as uow:
             self._validar_forma_pago(uow, data.forma_pago_codigo)
@@ -50,13 +56,17 @@ class PedidoService:
             for item in data.items:
                 producto = uow.productos.get_by_id(item.producto_id)
                 if producto is None:
-                    raise HTTPException(status_code=404, detail="Producto no encontrado")
+                    raise HTTPException(
+                        status_code=404, detail="Producto no encontrado")
                 if getattr(producto, "deleted_at", None) is not None:
-                    raise HTTPException(status_code=404, detail="Producto no encontrado")
+                    raise HTTPException(
+                        status_code=404, detail="Producto no encontrado")
                 if not producto.disponible:
-                    raise HTTPException(status_code=400, detail="Producto no disponible")
+                    raise HTTPException(
+                        status_code=400, detail="Producto no disponible")
                 if producto.stock_cantidad < item.cantidad:
-                    raise HTTPException(status_code=400, detail="No hay stock suficiente")
+                    raise HTTPException(
+                        status_code=400, detail="No hay stock suficiente")
                 precio_snapshot = producto.precio_base
                 subtotal_snapshot = precio_snapshot * item.cantidad
                 subtotal += subtotal_snapshot
@@ -104,11 +114,14 @@ class PedidoService:
                 usuario_id=usuario_id,
                 motivo="Pedido creado",
             )
+            self.descontar_stock_del_pedido(uow, pedido.id)
             return self._armar_pedido_read_full(uow, pedido)
+
     def obtener_pedido_por_id(self, pedido_id: int) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
             return self._armar_pedido_read_full(uow, pedido)
+
     def obtener_historial_pedido(self, pedido_id: int) -> list[HistorialEstadoPedidoRead]:
         with self._uow as uow:
             self._obtener_pedido_o_404(uow, pedido_id)
@@ -117,6 +130,7 @@ class PedidoService:
                 HistorialEstadoPedidoRead.model_validate(evento)
                 for evento in historial
             ]
+
     def cambiar_estado_pedido(
         self,
         pedido_id: int,
@@ -146,6 +160,10 @@ class PedidoService:
             estado_desde = pedido.estado_codigo
             pedido.estado_codigo = estado_destino.codigo
             pedido = uow.pedidos.update(pedido)
+            
+            if estado_destino.codigo == "CANCELADO":
+                self.restaurar_stock_del_pedido(uow, pedido.id)
+                
             self._registrar_historial(
                 uow=uow,
                 pedido_id=pedido.id,
@@ -155,18 +173,23 @@ class PedidoService:
                 motivo=data.motivo,
             )
             return self._armar_pedido_read_full(uow, pedido)
+
     def _obtener_pedido_o_404(self, uow, pedido_id: int) -> Pedido:
         pedido = uow.pedidos.get_by_id(pedido_id)
         if pedido is None or pedido.deleted_at is not None:
             raise HTTPException(status_code=404, detail="Pedido no encontrado")
         return pedido
+
     def _validar_forma_pago(self, uow, codigo: str):
         forma_pago = uow.formas_pago.get_by_codigo(codigo)
         if forma_pago is None:
-            raise HTTPException(status_code=400, detail="Forma de pago no encontrada")
+            raise HTTPException(
+                status_code=400, detail="Forma de pago no encontrada")
         if not forma_pago.habilitado:
-            raise HTTPException(status_code=400, detail="Forma de pago no está habilitada")
+            raise HTTPException(
+                status_code=400, detail="Forma de pago no está habilitada")
         return forma_pago
+
     def _obtener_estado_o_error(
         self,
         uow,
@@ -178,6 +201,7 @@ class PedidoService:
         if estado is None:
             raise HTTPException(status_code=status_code, detail=mensaje)
         return estado
+
     def _validar_transicion(
         self,
         estado_actual_codigo: str,
@@ -204,6 +228,7 @@ class PedidoService:
                 status_code=400,
                 detail="El motivo es obligatorio para cancelar un pedido",
             )
+
     def _registrar_historial(
         self,
         uow,
@@ -221,6 +246,7 @@ class PedidoService:
             motivo=motivo,
         )
         uow.historial.add(historial)
+
     def _armar_pedido_read_full(self, uow, pedido: Pedido) -> PedidoReadFull:
 
         detalles = uow.detalles.get_all_by_pedido_id(pedido.id)
@@ -245,35 +271,40 @@ class PedidoService:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
             if pedido.deleted_at is not None:
-                raise HTTPException(status_code=404, detail="Pedido no encontrado")
+                raise HTTPException(
+                    status_code=404, detail="Pedido no encontrado")
             uow.pedidos.delete(pedido)
 
-    def obtener_pedidos_por_usuario(self, usuario_id: int) -> list[PedidoReadFull]:
+    def obtener_pedidos_por_usuario(self, usuario_id: int, offset: int = 0, limit: int = 20) -> PedidoList:
         with self._uow as uow:
-            pedidos = uow.pedidos.get_all_by_usuario_id(usuario_id)
-            return [
-                self._armar_pedido_read_full(uow, pedido)
-                for pedido in pedidos
-            ]   
-        
-    def obtener_todos_los_pedidos(self) -> list[PedidoReadFull]:
+            pedidos = uow.pedidos.get_all_by_usuario_id(usuario_id, offset, limit)
+            total = uow.pedidos.count_by_usuario_id(usuario_id)
+            data = [PedidoRead.model_validate(p) for p in pedidos]
+            return PedidoList(data=data, total=total)
+
+    def obtener_todos_los_pedidos(self, offset: int = 0, limit: int = 20) -> PedidoList:
         with self._uow as uow:
-            pedidos = uow.pedidos.get_all_active()
-            return [self._armar_pedido_read_full(uow, p) for p in pedidos]
+            pedidos = uow.pedidos.get_all_active(offset, limit)
+            total = uow.pedidos.count_all_active()
+            data = [PedidoRead.model_validate(p) for p in pedidos]
+            return PedidoList(data=data, total=total)
 
     def obtener_pedido_propio(self, pedido_id: int, usuario_id: int) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
             if pedido.usuario_id != usuario_id:
-                raise HTTPException(status_code=403, detail="No tenés acceso a este pedido")
+                raise HTTPException(
+                    status_code=403, detail="No tenés acceso a este pedido")
             return self._armar_pedido_read_full(uow, pedido)
 
     def cancelar_pedido_propio(self, pedido_id: int, usuario_id: int, data: PedidoCambioEstado) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
             if pedido.usuario_id != usuario_id:
-                raise HTTPException(status_code=403, detail="No tenés acceso a este pedido")
-            estado_actual = self._obtener_estado_o_error(uow, pedido.estado_codigo, "Estado actual inválido", 500)
+                raise HTTPException(
+                    status_code=403, detail="No tenés acceso a este pedido")
+            estado_actual = self._obtener_estado_o_error(
+                uow, pedido.estado_codigo, "Estado actual inválido", 500)
             self._validar_transicion(
                 estado_actual_codigo=pedido.estado_codigo,
                 estado_destino_codigo="CANCELADO",
@@ -283,7 +314,11 @@ class PedidoService:
             estado_desde = pedido.estado_codigo
             pedido.estado_codigo = "CANCELADO"
             uow.pedidos.update(pedido)
-            self._registrar_historial(uow, pedido.id, estado_desde, "CANCELADO", usuario_id, data.motivo)
+            
+            self.restaurar_stock_del_pedido(uow, pedido.id)
+            
+            self._registrar_historial(
+                uow, pedido.id, estado_desde, "CANCELADO", usuario_id, data.motivo)
             return self._armar_pedido_read_full(uow, pedido)
 
     def descontar_stock_del_pedido(self, uow, pedido_id: int) -> None:
@@ -291,7 +326,8 @@ class PedidoService:
         for detalle in detalles:
             producto = uow.productos.get_by_id(detalle.producto_id)
             if producto is None or getattr(producto, "deleted_at", None) is not None:
-                raise HTTPException(status_code=404, detail="Producto no encontrado")
+                raise HTTPException(
+                    status_code=404, detail="Producto no encontrado")
             if producto.stock_cantidad < detalle.cantidad:
                 raise HTTPException(
                     status_code=409,
