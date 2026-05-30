@@ -16,6 +16,10 @@ class IngredienteBasicRead(SQLModel):
     es_alergeno: bool = Field(default=False, description="Si es alérgeno")
 
 
+class ProductoIngredienteRead(IngredienteBasicRead):
+    es_removible: bool = Field(default=False, description="Indica si el ingrediente es removible del producto")
+
+
 # ─── Base ─────────────────────────────────────────────────────────────────────────────────
 
 
@@ -25,7 +29,6 @@ class ProductoBase(SQLModel):
         default=None, description="Descripción del producto")
 
     unidad_venta_id: Optional[int] = Field(default=None, description="ID de la unidad de medida en la que se vende el producto")
-
     precio_base: Decimal = Field(..., description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
         default=None, description="URLs de imágenes del producto")
@@ -37,15 +40,20 @@ class ProductoBase(SQLModel):
 # ─── Request schemas ──────────────────────────────────────────────────────────────────────
 
 
+class ProductoIngredienteCreate(SQLModel):
+    ingrediente_id: int = Field(..., description="ID del ingrediente")
+    es_removible: bool = Field(default=False, description="Indica si el cliente puede remover este ingrediente")
+
+
 class ProductoCreate(ProductoBase):
     categoria_ids: list[int] = Field(
         ..., 
         min_length=1, 
         description="Lista de IDs de categorías a las que pertenece (obligatorio, mínimo 1)"
     )
-    ingrediente_ids: Optional[list[int]] = Field(
+    ingredientes: Optional[list[ProductoIngredienteCreate]] = Field(
         default=None, 
-        description="Lista opcional de IDs de ingredientes"
+        description="Lista opcional de ingredientes con su configuración para este producto"
     )
 
 
@@ -56,7 +64,6 @@ class ProductoUpdate(SQLModel):
         default=None, description="Descripción del producto")
 
     unidad_venta_id: Optional[int] = Field(default=None, description="ID de la unidad de medida en la que se vende el producto")
-
     precio_base: Optional[Decimal] = Field(
         default=None, description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
@@ -68,8 +75,8 @@ class ProductoUpdate(SQLModel):
     categoria_ids: Optional[list[int]] = Field(
         default=None, min_length=1, description="Lista opcional de IDs de categorías para actualizar"
     )
-    ingrediente_ids: Optional[list[int]] = Field(
-        default=None, description="Lista opcional de IDs de ingredientes para actualizar"
+    ingredientes: Optional[list[ProductoIngredienteCreate]] = Field(
+        default=None, description="Lista opcional de ingredientes para actualizar"
     )
 
 # ─── Response schemas ────────────────────────────────────────────────────────────────────
@@ -90,7 +97,7 @@ class ProductoBasicRead(SQLModel):
 class ProductoReadFull(ProductoRead):
     """Producto con categorías e ingredientes"""
     categorias: list[CategoriaBasicRead] = Field(default_factory=list)
-    ingredientes: list[IngredienteBasicRead] = Field(default_factory=list)
+    ingredientes: list[ProductoIngredienteRead] = Field(default_factory=list)
 
 
 # Facilita al frontend obtener el total de productos
