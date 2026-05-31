@@ -59,7 +59,14 @@ class PedidoRead(SQLModel):
 
 class PedidoReadFull(PedidoRead):
     items: List[DetallePedidoRead] = Field(default_factory=list)
+
+class PedidoReadAdmin(PedidoReadFull):
+    cliente_nombre: str
     
 class PedidoList(SQLModel):
     data: List[PedidoRead]
+    total: int
+
+class PedidoListAdmin(SQLModel):
+    data: List[PedidoReadAdmin]
     total: int

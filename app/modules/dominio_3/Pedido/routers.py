@@ -6,7 +6,7 @@ from sqlmodel import Session
 from app.core.database import get_session
 from app.core.deps import get_current_active_user, require_role
 from app.modules.dominio_1.usuario.schemas import UserPublic
-from app.modules.dominio_3.Pedido.schemas import PedidoCambioEstado, PedidoCreate, PedidoReadFull, PedidoList
+from app.modules.dominio_3.Pedido.schemas import PedidoCambioEstado, PedidoCreate, PedidoReadFull, PedidoList, PedidoListAdmin
 from app.modules.dominio_3.HistorialEstadoPedido.schemas import HistorialEstadoPedidoRead
 from app.modules.dominio_3.Pedido.service import PedidoService
 from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
@@ -66,12 +66,12 @@ def cancelar_mi_pedido(
 # ADMIN / PEDIDOS — visibilidad y gestión total
 # ══════════════════════════════════════════════════════
 
-@router.get("/", response_model=PedidoList,dependencies=[Depends(require_role(["ADMIN", "PEDIDOS"]))])
+@router.get("/", response_model=PedidoListAdmin,dependencies=[Depends(require_role(["ADMIN", "PEDIDOS"]))])
 def obtener_todos_los_pedidos(
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     service: PedidoService = Depends(get_pedido_service),
-) -> PedidoList:
+) -> PedidoListAdmin:
     return service.obtener_todos_los_pedidos(offset, limit)
 
 

@@ -11,6 +11,8 @@ from app.modules.dominio_3.Pedido.schemas import (
     PedidoCreate,
     PedidoReadFull,
     PedidoList,
+    PedidoListAdmin,
+    PedidoReadAdmin,
     PedidoRead
 )
 from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
@@ -22,9 +24,9 @@ class PedidoService:
     COSTO_ENVIO_FIJO = Decimal("50.00")
     TRANSICIONES_VALIDAS = {
         "PENDIENTE": {"CONFIRMADO", "CANCELADO"},
-        "CONFIRMADO": {"EN_PREP", "CANCELADO"},
-        "EN_PREP": {"EN_CAMINO", "CANCELADO"},
-        "EN_CAMINO": {"ENTREGADO"},
+        "CONFIRMADO": {"PENDIENTE", "EN_PREP", "CANCELADO"},
+        "EN_PREP": {"CONFIRMADO", "EN_CAMINO", "CANCELADO"},
+        "EN_CAMINO": {"EN_PREP", "ENTREGADO", "CANCELADO"},
         "ENTREGADO": set(),
         "CANCELADO": set(),
     }
@@ -96,6 +98,16 @@ class PedidoService:
                 item = detalle_creado["item"]
                 producto = detalle_creado["producto"]
                 subtotal_snapshot = detalle_creado["subtotal_snapshot"]
+                
+                # Snapshot personalizacion
+                nombres_removidos = None
+                if item.personalizacion:
+                    nombres_removidos = []
+                    for ing_id in item.personalizacion:
+                        ing = uow.ingredientes.get_by_id(ing_id)
+                        if ing:
+                            nombres_removidos.append(ing.nombre)
+                
                 detalle = DetallePedido(
                     pedido_id=pedido.id,
                     producto_id=item.producto_id,
@@ -104,6 +116,7 @@ class PedidoService:
                     precio_snapshot=producto.precio_base,
                     subtotal_snapshot=subtotal_snapshot,
                     personalizacion=item.personalizacion,
+                    personalizacion_snapshot=nombres_removidos,
                 )
                 uow.detalles.add(detalle)
             self._registrar_historial(
@@ -282,12 +295,21 @@ class PedidoService:
             data = [PedidoRead.model_validate(p) for p in pedidos]
             return PedidoList(data=data, total=total)
 
-    def obtener_todos_los_pedidos(self, offset: int = 0, limit: int = 20) -> PedidoList:
+    def _armar_pedido_read_admin(self, uow, pedido: Pedido) -> PedidoReadAdmin:
+        full_pedido = self._armar_pedido_read_full(uow, pedido)
+        usuario = uow.usuarios.get_by_id(pedido.usuario_id)
+        cliente_nombre = usuario.nombre if usuario else f"Cliente #{pedido.usuario_id}"
+        return PedidoReadAdmin(
+            **full_pedido.model_dump(),
+            cliente_nombre=cliente_nombre
+        )
+
+    def obtener_todos_los_pedidos(self, offset: int = 0, limit: int = 20) -> PedidoListAdmin:
         with self._uow as uow:
             pedidos = uow.pedidos.get_all_active(offset, limit)
             total = uow.pedidos.count_all_active()
-            data = [PedidoRead.model_validate(p) for p in pedidos]
-            return PedidoList(data=data, total=total)
+            data = [self._armar_pedido_read_admin(uow, p) for p in pedidos]
+            return PedidoListAdmin(data=data, total=total)
 
     def obtener_pedido_propio(self, pedido_id: int, usuario_id: int) -> PedidoReadFull:
         with self._uow as uow:
