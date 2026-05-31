@@ -20,4 +20,5 @@ class DetallePedidoRead(SQLModel):
     subtotal_snapshot: Decimal
     
     personalizacion: Optional[List[int]] = None
+    personalizacion_snapshot: Optional[List[str]] = None
     created_at: datetime

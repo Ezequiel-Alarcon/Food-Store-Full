@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, Numeric, CheckConstraint, ForeignKey, Integer, SmallInteger
+from sqlalchemy import Column, Numeric, CheckConstraint, ForeignKey, Integer, SmallInteger, String
 
 class DetallePedido(SQLModel, table=True):
     __tablename__ = "detalle_pedido" 
@@ -28,6 +28,7 @@ class DetallePedido(SQLModel, table=True):
     precio_snapshot: Decimal = Field(sa_column=Column(Numeric(10, 2), nullable=False))
     subtotal_snapshot: Decimal = Field(sa_column=Column(Numeric(10, 2), nullable=False))
     personalizacion: Optional[List[int]] = Field(default=None, sa_column=Column(ARRAY(Integer))) 
+    personalizacion_snapshot: Optional[List[str]] = Field(default=None, sa_column=Column(ARRAY(String)))
 
 #============== Audit ================
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
