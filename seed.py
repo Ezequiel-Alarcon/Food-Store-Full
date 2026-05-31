@@ -14,9 +14,9 @@ from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, P
 from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
 from app.modules.dominio_3.EstadoPedido.models import EstadoPedido
 from app.modules.dominio_3.FormaPago.models import FormaPago
-from app.modules.dominio_3.Pedido.models import Pedido
-from app.modules.dominio_3.DetallePedido.models import DetallePedido
-from app.modules.dominio_3.HistorialEstadoPedido.models import HistorialEstadoPedido
+from app.modules.dominio_3.Pedido.models import Pedido  # noqa: F401
+from app.modules.dominio_3.DetallePedido.models import DetallePedido  # noqa: F401
+from app.modules.dominio_3.HistorialEstadoPedido.models import HistorialEstadoPedido  # noqa: F401
 
 
 def seed():
