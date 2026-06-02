@@ -30,6 +30,8 @@ def login(
     
     token_obj = svc.login(form_data)
     
+    #TODO : BUG GRAVE - La cookie se setea con `secure=False`. En producción con HTTPS, esto permite que la cookie se transmita en texto plano. Debe ser `secure=True` siempre que se use HTTPS.
+    #TODO : Deuda técnica - El token JWT se devuelve tanto en la cookie HttpOnly como en el body JSON. Esto duplica innecesariamente el token y si el frontend lo almacena en localStorage, anula el propósito de seguridad de la cookie HttpOnly.
     response.set_cookie(
         key="access_token",
         value=token_obj.access_token,
@@ -57,7 +59,7 @@ def register(data: UserCreate, svc: UsuarioServiceDep) -> Any:
 # ==========================================
 usuarios_router = APIRouter(prefix="/usuarios", tags=["Usuarios (Mi Perfil)"])
 
-@usuarios_router.get("/me", response_model=UserPublic)
+@usuarios_router.get("/me", response_model=UserPublicAdminPanel)
 def read_user_me(current_user: CurrentUser) -> Any:
     """Devuelve los datos del usuario logueado actualmente."""
     return current_user

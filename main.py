@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    #TODO : Deuda técnica - Los metadatos de la API ("Nose"/"nose") son placeholders no profesionales. Deben reflejar el nombre real del proyecto (Food Store) y una descripción útil que aparecerá en Swagger/OpenAPI docs.
     app = FastAPI(
         title="Nose",
         description="nose",
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
     # load_dotenv()
     # frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
+    #TODO : BUG GRAVE - Los orígenes CORS están hardcodeados en lugar de usar variables de entorno (FRONTEND_URL). En producción con múltiples dominios esto va a fallar. Además, `allow_methods=["*"]` y `allow_headers=["*"]` son demasiado permisivos y van en contra del principio de mínimo privilegio.
     origenes_permitidos = [
         "http://localhost:5173",  # Puerto por defecto de Vite (React)
         "http://localhost:3000",  # Puerto por defecto de Create React App

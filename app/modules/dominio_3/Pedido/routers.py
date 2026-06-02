@@ -17,6 +17,7 @@ router = APIRouter()
 CurrentUser = Annotated[UserPublic, Depends(get_current_active_user)]
 
 def get_pedido_service(session: Session = Depends(get_session)) -> PedidoService:
+    #TODO : Deuda técnica - Este router inyecta `Session` directamente en lugar de usar el `UnitOfWork` como los demás módulos (UsuarioUnitOfWork). Es inconsistente con el patrón de arquitectura del proyecto y acopla el router a SQLModel.
     return PedidoService(PedidoUnitOfWork(session))
 
 
@@ -113,6 +114,8 @@ def eliminar_pedido(
 # ══════════════════════════════════════════════════════
 # RUTAS PÚBLICAS MVP (Frontend) - SIN SEGURIDAD
 # ══════════════════════════════════════════════════════
+
+#TODO : Deuda técnica - Las rutas "/publico" son para testing/MVP y están hardcodeadas a un usuario de prueba (`cliente@foodstore.com`). DEBEN ELIMINARSE antes del despliegue a producción, cuando el frontend del store implemente autenticación real. Actualmente sirven para que el repo-store (que no tiene auth todavía) pueda crear pedidos.
 
 def _obtener_cliente_prueba_id(uow: UsuarioUnitOfWork) -> int:
     with uow:

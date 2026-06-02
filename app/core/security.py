@@ -61,5 +61,6 @@ def decode_access_token(token: str) -> dict | None:
             return None
         return payload
     except JWTError as e:
+        #TODO : BUG GRAVE - El print() filtra detalles del error JWT en stdout, lo cual es una fuga de información sensible en producción. Debe usarse logging con nivel DEBUG en lugar de print.
         print(f"JWT ERROR: {e}")
         return None
