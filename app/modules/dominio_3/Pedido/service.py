@@ -344,6 +344,7 @@ class PedidoService:
             return self._armar_pedido_read_full(uow, pedido)
 
     def descontar_stock_del_pedido(self, uow, pedido_id: int) -> None:
+        #TODO : BUG GRAVE - El descuento de stock NO es atómico. Entre que se lee `producto.stock_cantidad` y se escribe el nuevo valor, otro request concurrente puede haber modificado el stock (race condition). En PostgreSQL debe usarse `SELECT ... FOR UPDATE` o un `UPDATE ... SET stock_cantidad = stock_cantidad - :cantidad WHERE stock_cantidad >= :cantidad` atómico.
         detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
         for detalle in detalles:
             producto = uow.productos.get_by_id(detalle.producto_id)
@@ -359,6 +360,7 @@ class PedidoService:
             uow.productos.update(producto)
 
     def restaurar_stock_del_pedido(self, uow, pedido_id: int) -> None:
+        #TODO : BUG GRAVE - Mismo race condition que `descontar_stock_del_pedido`: la restauración de stock no es atómica y está sujeta a condiciones de carrera concurrentes.
         detalles = uow.detalles.get_all_by_pedido_id(pedido_id)
         for detalle in detalles:
             producto = uow.productos.get_by_id(detalle.producto_id)

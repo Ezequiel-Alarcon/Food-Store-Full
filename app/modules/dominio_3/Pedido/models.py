@@ -7,6 +7,7 @@ from sqlalchemy import Column, Numeric, CheckConstraint, Text, ForeignKey, Integ
 
 
 class Pedido(SQLModel, table=True):
+    #TODO : Deuda técnica - Pedido NO extiende `UniqueAuditableMixin` como los demás modelos (Usuario, Producto, Categoria, etc.). En su lugar define manualmente `created_at`, `updated_at`, `deleted_at`. Esto rompe la consistencia arquitectónica y hace que el modelo no se beneficie de los índices únicos parciales para soft-deletes.
     __tablename__ = "pedidos"
 
     __table_args__ = (

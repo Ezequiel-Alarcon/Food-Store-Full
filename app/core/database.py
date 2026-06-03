@@ -10,6 +10,7 @@ if not settings.DATABASE_URL:
 
 engine = create_engine(
     settings.DATABASE_URL,
+    #TODO : BUG GRAVE - `echo=True` imprime TODAS las consultas SQL en stdout. En producción esto expone datos sensibles (hashes, queries completas) y degrada el rendimiento. Debe ser controlado por variable de entorno.
     echo=True,
 )
 

@@ -1,0 +1,1 @@
+#TODO : Feature pendiente - El módulo de Pagos aún no está implementado (no se cubrió en clase todavía). Los modelos y schemas existen pero los routers están vacíos. El checkout del frontend está hardcodeado a "EFECTIVO" mientras tanto. Implementar cuando se cubra el tema.
