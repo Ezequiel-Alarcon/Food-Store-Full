@@ -172,8 +172,7 @@ class UsuarioService:
         with self.uow:
             usuarios_paginados = self.uow.usuarios.get_paged_users(offset=offset, limit=limit, rol_codigo=rol_codigo, state = EstadoFiltro.ACTIVO)
 
-            #TODO : BUG GRAVE - `count_model` no recibe el parámetro `rol_codigo`, por lo que `total` siempre cuenta TODOS los usuarios activos, sin importar el filtro aplicado. Esto rompe la paginación cuando se filtra por rol: el frontend mostrará "Página 1 de 5" pero solo hay 2 resultados reales.
-            total = self.uow.usuarios.count_model(state=EstadoFiltro.ACTIVO)
+            total = self.uow.usuarios.count_users(rol_codigo=rol_codigo, state=EstadoFiltro.ACTIVO)
         return{
             "data": usuarios_paginados,
             "total": total

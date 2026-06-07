@@ -128,9 +128,9 @@ async def get_current_active_user(
     """
 
     if current_user.deleted_at is not None:
-        #TODO : Deuda técnica - Una cuenta desactivada debería devolver 403 FORBIDDEN o 401 UNAUTHORIZED, no 400 BAD_REQUEST. 400 implica que el request está mal formado, pero el problema real es de autorización.
+        # Se deja un 404 por motivos de seguirdad para que no sepan que hay un usuario baneado/desactivado
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Cuenta de usuario desactivada",
         )
 

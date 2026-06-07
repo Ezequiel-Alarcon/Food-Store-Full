@@ -1,5 +1,5 @@
 from typing import Optional, Sequence
-from sqlmodel import select, Session
+from sqlmodel import select, Session, func
 from app.modules.dominio_1.usuario.models import Usuario, Rol
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
@@ -26,6 +26,14 @@ class UsuarioRepository(BaseRepository[Usuario]):
 
         return self.session.exec(statement).all()
 
+    def count_users(self, rol_codigo: Optional[str] = None, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> int:
+        statement = select(func.count()).select_from(Usuario)
+        statement = self._filter_state(statement, state)
+
+        if rol_codigo:
+            statement = statement.join(Usuario.roles).where(Rol.codigo == rol_codigo)
+
+        return self.session.exec(statement).one()
 
 class RolRepository(BaseRepository[Rol]):
     def __init__(self, session: Session):
