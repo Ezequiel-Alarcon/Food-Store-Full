@@ -1,13 +1,12 @@
 from typing import Optional  
-from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlmodel import SQLModel, Field
 from sqlalchemy import Column, Numeric, CheckConstraint, Text, ForeignKey, Integer
+from app.core.minxins.auditable_mixin import UniqueAuditableMixin
 
 
-class Pedido(SQLModel, table=True):
-    #TODO : Deuda técnica - Pedido NO extiende `UniqueAuditableMixin` como los demás modelos (Usuario, Producto, Categoria, etc.). En su lugar define manualmente `created_at`, `updated_at`, `deleted_at`. Esto rompe la consistencia arquitectónica y hace que el modelo no se beneficie de los índices únicos parciales para soft-deletes.
+class Pedido(UniqueAuditableMixin,SQLModel, table=True):
     __tablename__ = "pedidos"
 
     __table_args__ = (
@@ -34,10 +33,3 @@ class Pedido(SQLModel, table=True):
 
 #============== Atributos ================
     notas: Optional[str] = Field(default=None, sa_column=Column(Text))
-
-#============== Audit ================
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    deleted_at: Optional[datetime] = Field(default=None)
-
