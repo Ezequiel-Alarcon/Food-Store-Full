@@ -34,6 +34,7 @@ def seed():
             {"codigo": "STOCK",   "nombre": "Gestor de Stock",   "descripcion": "Actualiza stock y disponible"},
             {"codigo": "PEDIDOS", "nombre": "Gestor de Pedidos", "descripcion": "Avanza estados CONFIRMADO->ENTREGADO"},
             {"codigo": "CLIENT",  "nombre": "Cliente",           "descripcion": "Opera solo sus propios datos"},
+            {"codigo": "COCINA",  "nombre": "Cocina",            "descripcion": "Recibe pedidos para preparar"},
         ]
         roles_db = {}
         for rol_data in roles_necesarios:
