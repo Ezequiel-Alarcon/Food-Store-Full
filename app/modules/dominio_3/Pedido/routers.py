@@ -1,22 +1,23 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response, status, Query, WebSocket, WebSocketDisconnect
-from app.core.websocket import ConnectionManager, get_connection_manager
+from fastapi import APIRouter, Depends, Response, status, Query, WebSocket, WebSocketDisconnect, BackgroundTasks
+from app.core.websocket import ConnectionManager, get_connection_manager, manager
 from sqlmodel import Session
 
 from app.core.security import decode_access_token
 from app.core.database import get_session
 from app.core.deps import get_current_active_user, require_role
 from app.modules.dominio_1.usuario.schemas import UserPublic
+from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork, get_uow
 from app.modules.dominio_3.Pedido.schemas import PedidoCambioEstado, PedidoCreate, PedidoReadFull, PedidoList, PedidoListAdmin
 from app.modules.dominio_3.HistorialEstadoPedido.schemas import HistorialEstadoPedidoRead
 from app.modules.dominio_3.Pedido.service import PedidoService
 from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
-from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork, get_uow
 
 router = APIRouter()
 
 CurrentUser = Annotated[UserPublic, Depends(get_current_active_user)]
+
 
 def get_pedido_service(session: Session = Depends(get_session)) -> PedidoService:
     return PedidoService(PedidoUnitOfWork(session))
@@ -30,11 +31,18 @@ def get_pedido_service(session: Session = Depends(get_session)) -> PedidoService
 def crear_pedido(
     data: PedidoCreate,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
     service: PedidoService = Depends(get_pedido_service),
 ) -> PedidoReadFull:
-    # TODO: Deuda técnica (WebSockets) - Implementar BackgroundTasks para emitir evento a la cocina.
-    # Falta inyectar `background_tasks: BackgroundTasks` y llamar a `manager.broadcast("NUEVO_PEDIDO", ...)`
-    return service.crear_pedido(data, current_user.id)
+    resultado = service.crear_pedido(data, current_user.id)
+    
+    # FASE 6: EL TIMBRE EN LA COCINA (WebSockets)
+    # Usamos BackgroundTasks para mandar un mensaje a todos los clientes 
+    # conectados al WebSocket en segundo plano. Así la pantalla del KDS 
+    # recibe el pedido al instante sin frenar la respuesta HTTP.
+    background_tasks.add_task(
+        manager.broadcast, "NUEVO_PEDIDO", resultado.model_dump(mode="json"))
+    return resultado
 
 
 @router.get("/mis-pedidos", response_model=PedidoList, dependencies=[Depends(require_role(["CLIENT"]))])
@@ -63,7 +71,7 @@ def cancelar_mi_pedido(
     current_user: CurrentUser,
     service: PedidoService = Depends(get_pedido_service),
 ) -> PedidoReadFull:
-    return service.cancelar_pedido_propio(pedido_id, current_user.id, data)
+    return service.cancelar_pedido_propio(pedido_id, current_user.id, current_user.roles[0].codigo, data)
 
 
 # ══════════════════════════════════════════════════════
@@ -95,16 +103,34 @@ def obtener_historial_pedido(
     return service.obtener_historial_pedido(pedido_id)
 
 
-@router.patch("/{pedido_id}/estado", response_model=PedidoReadFull, dependencies=[Depends(require_role(["ADMIN", "PEDIDOS"]))])
+@router.patch("/{pedido_id}/estado", response_model=PedidoReadFull, dependencies=[Depends(require_role(["ADMIN", "PEDIDOS", "COCINA"]))])
 def cambiar_estado_pedido(
     pedido_id: int,
     data: PedidoCambioEstado,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
     service: PedidoService = Depends(get_pedido_service),
 ) -> PedidoReadFull:
-    # TODO: Deuda técnica (WebSockets) - Implementar BackgroundTasks para avisar cambio de estado.
-    # Falta inyectar `background_tasks: BackgroundTasks` y llamar a `manager.broadcast("ESTADO_ACTUALIZADO", ...)`
-    return service.cambiar_estado_pedido(pedido_id, data, current_user.id)
+    resultado = service.cambiar_estado_pedido(
+        pedido_id, data, current_user.id, current_user.roles[0].codigo)
+
+    # FASE 6: EL AVISO DE ACTUALIZACIÓN (WebSockets)
+    # Mapeamos los estados exactos de la base de datos a los nombres 
+    # de eventos que el frontend en JavaScript espera recibir.
+    EVENTOS_WS = {
+        "CONFIRMADO": "PEDIDO_CONFIRMADO",
+        "EN_PREP": "PEDIDO_EN_PREPARACION",
+        "EN_CAMINO": "PEDIDO_EN_CAMINO",
+        "CANCELADO": "PEDIDO_CANCELADO",
+    }
+    # Si el estado no está en el dicc, por defecto mandamos "ESTADO_ACTUALIZADO"
+    evento = EVENTOS_WS.get(resultado.estado_codigo, "ESTADO_ACTUALIZADO")
+    
+    # Disparamos el aviso en segundo plano a todas las conexiones WebSocket vivas
+    background_tasks.add_task(
+        manager.broadcast, evento, resultado.model_dump(mode="json"))
+
+    return resultado
 
 
 @router.delete("/{pedido_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_role(["ADMIN"]))])
@@ -123,7 +149,7 @@ def eliminar_pedido(
 # TODO : Deuda técnica - Las rutas "/publico" son para testing/MVP y están hardcodeadas a un usuario de prueba (`cliente@foodstore.com`). DEBEN ELIMINARSE antes del despliegue a producción, cuando el frontend del store implemente autenticación real. Actualmente sirven para que el repo-store (que no tiene auth todavía) pueda crear pedidos.
 
 def _obtener_cliente_prueba_id(uow: UsuarioUnitOfWork) -> int:
-    
+
     with uow:
         # Buscamos el cliente de prueba por email (creado en seed.py)
         user = uow.usuarios.get_by_email("cliente@foodstore.com")
@@ -169,14 +195,20 @@ def cancelar_mi_pedido_publico(
     uow: UsuarioUnitOfWork = Depends(get_uow)
 ) -> PedidoReadFull:
     user_id = _obtener_cliente_prueba_id(uow)
-    return service.cancelar_pedido_propio(pedido_id, user_id, data)
+    return service.cancelar_pedido_propio(pedido_id, user_id, "CLIENT", data)
 
-
-# TODO: Deuda técnica (WebSockets) - Crear ruta GET /cocina/pedidos
-# La cocina necesita un endpoint HTTP normal que devuelva los pedidos que ya estaban en 'CONFIRMADO'
-# o 'EN_PREP' para poder mostrar el estado inicial al cargar la pantalla.
 
 # ─── WebSocket para tiempo real ─────────────────────────────────────────────
+
+@router.get("/cocina/pedidos", response_model=PedidoListAdmin, dependencies=[Depends(require_role(["COCINA", "ADMIN", "PEDIDOS"]))])
+def obtener_pedidos_cocina(
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    service: PedidoService = Depends(get_pedido_service),
+) -> PedidoListAdmin:
+    return service.obtener_pedidos_cocina(offset, limit)
+
+
 @router.websocket("/cocina/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -208,25 +240,32 @@ async def websocket_endpoint(
         await websocket.close(code=1008, reason="Token inválido o expirado")
         return
 
-    # Extraemos el "subject" del token, que en nuestra app es el nombre de usuario.
-    username = payload.get("sub")
-    if not username:
+    # Extraemos el "subject" del token, que en nuestra app es el ID numérico del usuario.
+    user_id_str = payload.get("sub")
+    if not user_id_str:
         await websocket.accept()
         await websocket.close(code=1008, reason="Token inválido")
+        return
+        
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token inválido (sub no es entero)")
         return
 
     # FASE 3: VALIDACIÓN DE NEGOCIO (EL "PATOVICA")
     # Ya sabemos que el token es criptográficamente válido, pero ¿el usuario sigue existiendo
     # en la base de datos? ¿Y tiene permiso para ver esta pantalla?
     with uow:
-        # Buscamos al usuario en la BD usando el nombre que sacamos del token
-        user = uow.usuarios.get_by_username(username)
+        # Buscamos al usuario en la BD usando el ID que sacamos del token
+        user = uow.usuarios.get_by_id(user_id)
 
         # Validamos dos cosas de un plumazo:
         # 1. Que el usuario exista ('not user')
         # 2. Que su rol (en mayúsculas por seguridad) sea uno de los permitidos.
         # Si es un cliente normal (rol "CLIENT"), lo rebotamos.
-        if not user or user.role.upper() not in ["COCINA", "ADMIN", "PEDIDOS"]:
+        if not user or not any(rol.codigo in ["COCINA", "ADMIN", "PEDIDOS"] for rol in user.roles):
             await websocket.accept()
             await websocket.close(code=1008, reason="Permisos insuficientes")
             return
@@ -258,3 +297,17 @@ async def websocket_endpoint(
     # para no dejar conexiones fantasma ocupando memoria RAM en el servidor.
     except Exception:
         manager.disconnect(websocket)
+
+
+# ==============================================================================
+#                             BLOQUE DE PRUEBAS
+# ==============================================================================
+@router.get("/cocina/html-prueba", tags=["Pruebas WS"])
+def get_cocina_dashboard_prueba():
+    import pathlib
+    from fastapi.responses import HTMLResponse
+    html_path = pathlib.Path(__file__).parent.parent.parent.parent / "templates" / "kds.html"
+    if not html_path.exists():
+        return HTMLResponse(f"<h2>Archivo KDS no encontrado en {html_path}</h2>", status_code=404)
+    return HTMLResponse(html_path.read_text(encoding="utf-8"))
+# ==============================================================================

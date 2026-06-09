@@ -82,6 +82,60 @@ def seed():
         else:
             print("  ✅ Cliente de prueba ya existe, se omite.")
 
+        email_cocina = "cocina@foodstore.com"
+        cocina_prueba = session.exec(select(Usuario).where(Usuario.email == email_cocina)).first()
+        if not cocina_prueba:
+            print("  Creando usuario COCINA de prueba...")
+            nuevo_cocina = Usuario(
+                nombre="Jefe",
+                apellido="Cocina",
+                email=email_cocina,
+                celular="2610000001",
+                password_hash=hash_password("cocina123"),
+            )
+            nuevo_cocina.roles.append(roles_db["COCINA"])
+            session.add(nuevo_cocina)
+            session.commit()
+            print("  ✅ Cocina creado (cocina@foodstore.com / cocina123)")
+        else:
+            print("  ✅ Cocina de prueba ya existe, se omite.")
+
+        email_pedidos = "pedidos@foodstore.com"
+        pedidos_prueba = session.exec(select(Usuario).where(Usuario.email == email_pedidos)).first()
+        if not pedidos_prueba:
+            print("  Creando usuario PEDIDOS de prueba...")
+            nuevo_pedidos = Usuario(
+                nombre="Gestor",
+                apellido="Pedidos",
+                email=email_pedidos,
+                celular="2610000002",
+                password_hash=hash_password("pedidos123"),
+            )
+            nuevo_pedidos.roles.append(roles_db["PEDIDOS"])
+            session.add(nuevo_pedidos)
+            session.commit()
+            print("  ✅ Pedidos creado (pedidos@foodstore.com / pedidos123)")
+        else:
+            print("  ✅ Pedidos de prueba ya existe, se omite.")
+
+        email_stock = "stock@foodstore.com"
+        stock_prueba = session.exec(select(Usuario).where(Usuario.email == email_stock)).first()
+        if not stock_prueba:
+            print("  Creando usuario STOCK de prueba...")
+            nuevo_stock = Usuario(
+                nombre="Gestor",
+                apellido="Stock",
+                email=email_stock,
+                celular="2610000003",
+                password_hash=hash_password("stock123"),
+            )
+            nuevo_stock.roles.append(roles_db["STOCK"])
+            session.add(nuevo_stock)
+            session.commit()
+            print("  ✅ Stock creado (stock@foodstore.com / stock123)")
+        else:
+            print("  ✅ Stock de prueba ya existe, se omite.")
+
         # ══════════════════════════════════════════════════════
         # DOMINIO 3 — Estados de pedido y formas de pago
         # ══════════════════════════════════════════════════════
@@ -91,8 +145,8 @@ def seed():
             {"codigo": "CONFIRMADO", "descripcion": "Pedido confirmado por el comercio",             "orden": 2,  "es_terminal": False},
             {"codigo": "EN_PREP",    "descripcion": "Pedido en preparación",                         "orden": 3,  "es_terminal": False},
             {"codigo": "EN_CAMINO",  "descripcion": "Pedido en camino al cliente",                   "orden": 4,  "es_terminal": False},
-            {"codigo": "ENTREGADO",  "descripcion": "Pedido entregado exitosamente",                 "orden": 5,  "es_terminal": True},
-            {"codigo": "CANCELADO",  "descripcion": "Pedido cancelado",                              "orden": 99, "es_terminal": True},
+            {"codigo": "ENTREGADO",  "descripcion": "Pedido entregado exitosamente",                 "orden": 4,  "es_terminal": True},
+            {"codigo": "CANCELADO",  "descripcion": "Pedido cancelado",                              "orden": 5,  "es_terminal": True},
         ]
         for est_data in estados:
             est = session.exec(select(EstadoPedido).where(EstadoPedido.codigo == est_data["codigo"])).first()
@@ -213,9 +267,16 @@ def seed():
         session.commit()
 
     print("--- SEED FINALIZADO ✅ ---")
-    print("   • 4 roles + usuario admin")
+    print("   • 4 roles + usuarios de prueba")
     print("   • 6 estados de pedido + 3 formas de pago")
     print("   • 6 categorías + 12 ingredientes + 7 unidades de medida + 6 productos")
+    print("\n--- CUENTAS DE PRUEBA ---")
+    print("   👤 Admin:   admin@foodstore.com   / admin123")
+    print("   👨‍🍳 Cocina:  cocina@foodstore.com  / cocina123")
+    print("   📦 Pedidos: pedidos@foodstore.com / pedidos123")
+    print("   📊 Stock:   stock@foodstore.com   / stock123")
+    print("   🍔 Cliente: cliente@foodstore.com / cliente123")
+    print("-------------------------")
 
 
 if __name__ == "__main__":
