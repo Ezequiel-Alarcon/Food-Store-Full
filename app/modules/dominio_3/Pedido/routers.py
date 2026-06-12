@@ -291,12 +291,12 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         # Capturamos la explosión en silencio y le avisamos al manager que borre
         # a este websocket de su memoria porque ya no sirve más.
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
     # Por las dudas, si ocurre CUALQUIER otro error raro, también lo desconectamos
     # para no dejar conexiones fantasma ocupando memoria RAM en el servidor.
     except Exception:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
 
 # ==============================================================================
