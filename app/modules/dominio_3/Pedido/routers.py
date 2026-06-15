@@ -142,61 +142,6 @@ def eliminar_pedido(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ══════════════════════════════════════════════════════
-# RUTAS PÚBLICAS MVP (Frontend) - SIN SEGURIDAD
-# ══════════════════════════════════════════════════════
-
-# TODO : Deuda técnica - Las rutas "/publico" son para testing/MVP y están hardcodeadas a un usuario de prueba (`cliente@foodstore.com`). DEBEN ELIMINARSE antes del despliegue a producción, cuando el frontend del store implemente autenticación real. Actualmente sirven para que el repo-store (que no tiene auth todavía) pueda crear pedidos.
-
-def _obtener_cliente_prueba_id(uow: UsuarioUnitOfWork) -> int:
-
-    with uow:
-        # Buscamos el cliente de prueba por email (creado en seed.py)
-        user = uow.usuarios.get_by_email("cliente@foodstore.com")
-        return user.id if user else 2
-
-
-@router.post("/publico", response_model=PedidoReadFull, status_code=status.HTTP_201_CREATED)
-def crear_pedido_publico(
-    data: PedidoCreate,
-    service: PedidoService = Depends(get_pedido_service),
-    uow: UsuarioUnitOfWork = Depends(get_uow)
-) -> PedidoReadFull:
-    user_id = _obtener_cliente_prueba_id(uow)
-    return service.crear_pedido(data, user_id)
-
-
-@router.get("/publico/mis-pedidos", response_model=PedidoList)
-def obtener_mis_pedidos_publico(
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    service: PedidoService = Depends(get_pedido_service),
-    uow: UsuarioUnitOfWork = Depends(get_uow)
-) -> PedidoList:
-    user_id = _obtener_cliente_prueba_id(uow)
-    return service.obtener_pedidos_por_usuario(user_id, offset, limit)
-
-
-@router.get("/publico/mis-pedidos/{pedido_id}", response_model=PedidoReadFull)
-def obtener_mi_pedido_publico(
-    pedido_id: int,
-    service: PedidoService = Depends(get_pedido_service),
-    uow: UsuarioUnitOfWork = Depends(get_uow)
-) -> PedidoReadFull:
-    user_id = _obtener_cliente_prueba_id(uow)
-    return service.obtener_pedido_propio(pedido_id, user_id)
-
-
-@router.patch("/publico/mis-pedidos/{pedido_id}/cancelar", response_model=PedidoReadFull)
-def cancelar_mi_pedido_publico(
-    pedido_id: int,
-    data: PedidoCambioEstado,
-    service: PedidoService = Depends(get_pedido_service),
-    uow: UsuarioUnitOfWork = Depends(get_uow)
-) -> PedidoReadFull:
-    user_id = _obtener_cliente_prueba_id(uow)
-    return service.cancelar_pedido_propio(pedido_id, user_id, "CLIENT", data)
-
 
 # ─── WebSocket para tiempo real ─────────────────────────────────────────────
 

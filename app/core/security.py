@@ -8,11 +8,12 @@ Separado del router para poder reutilizarse en seeds, tests, etc.
 """
 
 from datetime import datetime, timedelta, timezone
-
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-
 from app.core.config import settings
+import logging
+
+logger = logging.getLogger("app.core.security")
 
 # ─── Hashing (bcrypt) ─────────────────────────────────────────────────────────
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
@@ -61,6 +62,5 @@ def decode_access_token(token: str) -> dict | None:
             return None
         return payload
     except JWTError as e:
-        #TODO : BUG GRAVE - El print() filtra detalles del error JWT en stdout, lo cual es una fuga de información sensible en producción. Debe usarse logging con nivel DEBUG en lugar de print.
-        print(f"JWT ERROR: {e}")
+        logger.debug(f"JWT ERROR: {e}")
         return None

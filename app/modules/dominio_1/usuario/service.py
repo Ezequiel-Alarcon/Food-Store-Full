@@ -118,7 +118,6 @@ class UsuarioService:
             )
 
             # 2. Refresh Token
-            #TODO : Aclaración - El refresh token se genera hasheando el access token (SHA256 del JWT) en vez de usar un valor aleatorio independiente. Esto es intencional para el alcance actual (el profesor pidió que se vea en la BD). Para producción, generar un token aleatorio con secrets.token_hex().
             token_hash = hashlib.sha256(access_token.encode()).hexdigest()
             expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
