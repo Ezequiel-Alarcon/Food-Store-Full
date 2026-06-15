@@ -28,8 +28,8 @@ class DetallePedidoRepository(BaseRepository[DetallePedido]):
         ).where(
             Pedido.estado_codigo != "CANCELADO",
             Pago.mp_status == "approved",
-            func.date(Pedido.fecha_pedido) >= desde,
-            func.date(Pedido.fecha_pedido) <= hasta
+            func.date(Pedido.created_at) >= desde,
+            func.date(Pedido.created_at) <= hasta
         ).group_by(
             Producto.nombre
         ).order_by(
