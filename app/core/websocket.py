@@ -12,19 +12,51 @@ class ConnectionManager:
         """Inicializa el gestor de conexiones."""
         # Set de conexiones activas. Se usa set para evitar duplicados.
         self.active_connections: set[WebSocket] = set()
+        
+        self.rooms: dict[str, set[WebSocket]] = {}
+        self.socket_rooms: dict[WebSocket, set[str]] = {}
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(self, websocket: WebSocket, role: str, user_id: int) -> None:
         """Acepta el handshake y registra la conexion."""
         await websocket.accept()
-        self.active_connections.add(websocket)
+        
+        """Normalizamos el rol a mayusculas para evitar inconsistencias"""
+        #TODO: Validar role
+        role_key = f"role:{role.upper()}"
+        
+        """Unimos el socket a su room de rol"""
+        #TODO: El usuario debe tener un solo rol
+        self._join_room(websocket, role_key)
+        
+        # self.active_connections.add(websocket)
         logger.info(
-            f"Nueva conexion WebSocket: {len(self.active_connections)} total")
+            f"Conexion Websocket aceptada. user_id={user_id}, role={role}, "
+            f"room={role_key}. Total de rooms activas: {len(self.rooms)}")
 
     def disconnect(self, websocket: WebSocket) -> None:
-        """ Elimina la conexion del registro. Discard no lanza error si no existe"""
-        self.active_connections.discard(websocket)
+        """Obtener y eliminar el mapa inverso"""
+        rooms = self.socket_rooms.pop(websocket, set())
+        
+        """Rmover de cada room: O(r)"""
+        for room in rooms:
+          if room in self.rooms:
+            self.rooms[room].discard(websocket)
+            """Se elimina la room se queda vacia"""
+            if not self.rooms[room]:
+              del self.rooms[room]
         logger.info(
-            f"Conexion WebSocket cerrada: {len(self.active_connections)} total")
+          f"Conexion Websocket finalizada. Rooms liberadas: {rooms}. "
+          f"Total rooms activas: {len(self.rooms)}"
+        )
+        
+    def join_role_room(self, websocket: WebSocket, role_code: str) -> None:
+      room = f"role:{role_code}"
+      self._join_room(websocket, room)
+      logger.info(f"Socket suscrito a room {room}")
+    
+    def leave_role_room(self, websocket: WebSocket, role_code: str) -> None:
+      room = f"role:{role_code}"
+      if room
 
     async def broadcast(self, event_type: str, data: dict[str, Any]) -> None:
         """ 
