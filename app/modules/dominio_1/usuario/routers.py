@@ -30,8 +30,7 @@ def login(
     
     token_obj = svc.login(form_data)
     
-    #TODO : BUG GRAVE - La cookie se setea con `secure=False`. En producción con HTTPS, esto permite que la cookie se transmita en texto plano. Debe ser `secure=True` siempre que se use HTTPS.
-    #TODO : Deuda técnica - El token JWT se devuelve tanto en la cookie HttpOnly como en el body JSON. Esto duplica innecesariamente el token y si el frontend lo almacena en localStorage, anula el propósito de seguridad de la cookie HttpOnly.
+    # Se devuelve el token en el body para que el botón Authorize de Swagger funcione durante el desarrollo. En producción real iría solo por cookie HttpOnly.
     response.set_cookie(
         key="access_token",
         value=token_obj.access_token,

@@ -13,12 +13,11 @@ class Settings(BaseSettings):
     POSTGRES_HOST: Optional[str] = None
     POSTGRES_PORT: Optional[str] = None
 
-    #TODO : BUG GRAVE - SECRET_KEY es Optional[str] = None sin ninguna validación. Si no se configura en .env, los JWT se firmarían con clave None o vacía, comprometiendo TODA la seguridad del sistema. Debe ser requerido y lanzar error en startup si falta.
-    SECRET_KEY: Optional[str] = None
-    ALGORITHM: Optional[str] = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: Optional[int] = 30
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-
+    
     @model_validator(mode="after")
     def fix_database_url(self):
         # Build from individual parts if DATABASE_URL not provided
