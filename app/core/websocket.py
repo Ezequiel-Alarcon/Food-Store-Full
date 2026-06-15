@@ -11,10 +11,21 @@ class ConnectionManager:
     def __init__(self) -> None:
         """Inicializa el gestor de conexiones."""
         # Set de conexiones activas. Se usa set para evitar duplicados.
-        self.active_connections: set[WebSocket] = set()
+        # self.active_connections: set[WebSocket] = set()
         
         self.rooms: dict[str, set[WebSocket]] = {}
         self.socket_rooms: dict[WebSocket, set[str]] = {}
+        
+    def _join_room(self, websocket: WebSocket, room: str) -> None:
+      if room not in self.rooms:
+        self.rooms[room] = set()
+        
+      self.rooms[room].add(websocket)
+      
+      if websocket not in self.socket_rooms:
+        self.socket_rooms[websocket] = set()
+        
+      self.socket_rooms[websocket].add(room)
 
     async def connect(self, websocket: WebSocket, role: str, user_id: int) -> None:
         """Acepta el handshake y registra la conexion."""
@@ -50,13 +61,19 @@ class ConnectionManager:
         )
         
     def join_role_room(self, websocket: WebSocket, role_code: str) -> None:
-      room = f"role:{role_code}"
+      room = f"role:{role_code.upper()}"
       self._join_room(websocket, room)
       logger.info(f"Socket suscrito a room {room}")
     
     def leave_role_room(self, websocket: WebSocket, role_code: str) -> None:
-      room = f"role:{role_code}"
-      if room
+      room = f"role:{role_code.upper()}"
+      if room in self.rooms:
+        self.rooms[room].discard(websocket)
+        if websocket in self.socket_rooms:
+          self.socket_rooms[websocket].discard(room)
+          
+        if not self.rooms[room]:
+          del self.rooms[room]
 
     async def broadcast(self, event_type: str, data: dict[str, Any]) -> None:
         """ 
