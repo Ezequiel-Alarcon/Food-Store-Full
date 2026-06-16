@@ -25,7 +25,7 @@ class PedidoRepository(BaseRepository[Pedido]):
         return self.session.exec(statement).one()
     
     def get_ventas_periodo(self, desde: date, hasta: date, agrupacion: str = 'day'):
-        col_fecha = func.date_trunc(agrupacion, self.model.fecha_pedido).label("fecha")
+        col_fecha = func.date_trunc(agrupacion, self.model.created_at).label("fecha")
         stmt = select(
             col_fecha,
             func.sum(self.model.total).label("total_ventas"),
@@ -35,8 +35,8 @@ class PedidoRepository(BaseRepository[Pedido]):
         ).where(
             self.model.estado_codigo != "CANCELADO",
             Pago.mp_status == "approved",
-            func.date(self.model.fecha_pedido) >= desde,
-            func.date(self.model.fecha_pedido) <= hasta
+            func.date(self.model.created_at) >= desde,
+            func.date(self.model.created_at) <= hasta
         ).group_by(
             col_fecha
         ).order_by(
@@ -68,8 +68,8 @@ class PedidoRepository(BaseRepository[Pedido]):
         ).where(
             self.model.estado_codigo != "CANCELADO",
             Pago.mp_status == "approved",
-            func.date(self.model.fecha_pedido) >= desde,
-            func.date(self.model.fecha_pedido) <= hasta
+            func.date(self.model.created_at) >= desde,
+            func.date(self.model.created_at) <= hasta
         ).group_by(
             self.model.forma_pago_codigo
         ).order_by(

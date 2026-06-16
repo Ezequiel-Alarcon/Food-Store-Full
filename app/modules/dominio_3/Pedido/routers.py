@@ -37,11 +37,10 @@ def crear_pedido(
     resultado = service.crear_pedido(data, current_user.id)
     
     # FASE 6: EL TIMBRE EN LA COCINA (WebSockets)
-    # Usamos BackgroundTasks para mandar un mensaje a todos los clientes 
-    # conectados al WebSocket en segundo plano. Así la pantalla del KDS 
-    # recibe el pedido al instante sin frenar la respuesta HTTP.
+    # Despachamos el evento a la room de KDS en segundo plano.
+    # Asi la pantalla del KDS recibe el pedido al instante sin frenar la respuesta HTTP.
     background_tasks.add_task(
-        manager.broadcast, "NUEVO_PEDIDO", resultado.model_dump(mode="json"))
+        manager.send_to_room, "role:KDS", "NUEVO_PEDIDO", resultado.model_dump(mode="json"))
     return resultado
 
 
@@ -115,7 +114,7 @@ def cambiar_estado_pedido(
         pedido_id, data, current_user.id, current_user.roles[0].codigo)
 
     # FASE 6: EL AVISO DE ACTUALIZACIÓN (WebSockets)
-    # Mapeamos los estados exactos de la base de datos a los nombres 
+    # Mapeamos los estados exactos de la base de datos a los nombres
     # de eventos que el frontend en JavaScript espera recibir.
     EVENTOS_WS = {
         "CONFIRMADO": "PEDIDO_CONFIRMADO",
@@ -125,10 +124,9 @@ def cambiar_estado_pedido(
     }
     # Si el estado no está en el dicc, por defecto mandamos "ESTADO_ACTUALIZADO"
     evento = EVENTOS_WS.get(resultado.estado_codigo, "ESTADO_ACTUALIZADO")
-    
-    # Disparamos el aviso en segundo plano a todas las conexiones WebSocket vivas
+
     background_tasks.add_task(
-        manager.broadcast, evento, resultado.model_dump(mode="json"))
+        manager.send_to_room, "role:KDS", evento, resultado.model_dump(mode="json"))
 
     return resultado
 
@@ -217,9 +215,10 @@ async def websocket_endpoint(
 
     # FASE 4: EL REGISTRO
     # ¡Pasó todos los controles de seguridad! Oficialmente le abrimos la puerta.
-    # El manager guarda este objeto 'websocket' en su memoria (en un Set de Python)
-    # para tenerlo en la mira cuando haya que mandar un mensaje masivo (broadcast).
-    await manager.connect(websocket)
+    # El manager suscribe este websocket a la room de su rol y a la room
+    # funcional KDS para recibir los eventos en tiempo real.
+    await manager.connect(websocket, user.roles[0].codigo, user_id)
+    manager.join_role_room(websocket, "KDS")
 
     # FASE 5: LA VIGILIA (MANTENER EL TÚNEL VIVO)
     try:
@@ -236,12 +235,12 @@ async def websocket_endpoint(
     except WebSocketDisconnect:
         # Capturamos la explosión en silencio y le avisamos al manager que borre
         # a este websocket de su memoria porque ya no sirve más.
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
     # Por las dudas, si ocurre CUALQUIER otro error raro, también lo desconectamos
     # para no dejar conexiones fantasma ocupando memoria RAM en el servidor.
     except Exception:
-        manager.disconnect(websocket)
+        await manager.disconnect(websocket)
 
 
 # ==============================================================================
