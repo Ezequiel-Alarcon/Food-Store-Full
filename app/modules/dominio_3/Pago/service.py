@@ -72,6 +72,7 @@ class PaymentService:
             "mp_status": response.get("status"),
             "mp_status_detail": response.get("status_detail"),
             "mp_merchant_order_id": response.get("order", {}).get("id") if "order" in response else response.get("merchant_order_id"),
+            "external_reference": response.get("external_reference")
         }
 
     def crear_pago(self, pedido_id: int) -> PagoCrearResponse:
@@ -106,6 +107,7 @@ class PaymentService:
                 estado="pendiente",
                 mp_preference_id=mp_data["preference_id"],
                 mp_init_point=mp_data.get("init_point"),
+                external_reference=str(pedido_id),
                 idempotency_key=str(uuid.uuid4()),
             )
             uow.pagos.add(pago)
@@ -150,8 +152,14 @@ class PaymentService:
 
             with PagoUnitOfWork(self._session) as uow:
                 pago = uow.pagos.get_by_mp_payment_id(int(pago_mp_id))
-                if not pago and mp_info.get("mp_merchant_order_id"):
-                    pago = uow.pagos.get_by_mp_merchant_order_id(mp_info["mp_merchant_order_id"])
+                
+                # Novedad: Si no lo encontramos por payment_id, lo buscamos por el external_reference (pedido_id)
+                if not pago and mp_info.get("external_reference"):
+                    try:
+                        ped_id = int(mp_info["external_reference"])
+                        pago = uow.pagos.get_ultimo_by_pedido(ped_id)
+                    except ValueError:
+                        pass
 
                 if not pago:
                     return {"status": "ignored", "reason": "Pago not found"}
