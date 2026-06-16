@@ -45,7 +45,8 @@ class PaymentService:
         result = sdk.preference().create(preference_data)
 
         if result.get("status") not in (200, 201):
-            raise RuntimeError("Error al crear preferencia en MercadoPago")
+            error_detail = result.get("response", {})
+            raise RuntimeError(f"Error MP: {error_detail}")
 
         response = result.get("response", {})
         return {
@@ -62,14 +63,15 @@ class PaymentService:
         result = sdk.payment().get(payment_id)
 
         if result.get("status") != 200:
-            raise RuntimeError(f"Error al consultar pago {payment_id}")
+            error_detail = result.get("response", {})
+            raise RuntimeError(f"Error al consultar pago {payment_id}: {error_detail}")
 
         response = result.get("response", {})
         return {
             "mp_payment_id": response.get("id"),
             "mp_status": response.get("status"),
             "mp_status_detail": response.get("status_detail"),
-            "mp_merchant_order_id": response.get("merchant_order_id"),
+            "mp_merchant_order_id": response.get("order", {}).get("id") if "order" in response else response.get("merchant_order_id"),
         }
 
     def crear_pago(self, pedido_id: int) -> PagoCrearResponse:
@@ -128,9 +130,9 @@ class PaymentService:
         if not topic and query_params:
             topic = query_params.get("topic") or query_params.get("type")
 
-        pago_mp_id = payment_id or data_id
+        pago_mp_id = data_id or payment_id
 
-        if not pago_mp_id or topic not in (None, "payment", "merchant_order"):
+        if not pago_mp_id or topic != "payment":
             return {"status": "ignored"}
 
         try:
