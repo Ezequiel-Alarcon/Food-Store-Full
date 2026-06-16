@@ -13,6 +13,7 @@ from app.modules.dominio_2.ingrediente.router import router as ingrediente_route
 from app.modules.dominio_2.producto.router import router as producto_router
 from app.modules.dominio_3.Pedido.routers import router as pedido_router
 from app.modules.dominio_3.Estadisticas.router import router as estadisticas_router
+from app.modules.dominio_3.Pago.routers import router as pago_router
 
 from app.modules.dominio_1.usuario.routers import auth_router, usuarios_router, admin_router
 from app.modules.dominio_1.direccion_entrega.routers import router as direccion_router
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     # ── Dominio 3 ──────────────────────────────────────
     app.include_router(pedido_router,        prefix="/api/v1/pedidos",        tags=["Pedidos"])
     app.include_router(estadisticas_router)
+    app.include_router(pago_router) 
 
     app.add_exception_handler(HTTPException, manejar_http_exceptions)
     app.add_exception_handler(RequestValidationError, manejar_validaciones)
