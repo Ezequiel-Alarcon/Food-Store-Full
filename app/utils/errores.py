@@ -25,19 +25,3 @@ async def validation_exception_handler(reques: Request, exc: RequestValidationEr
                "field": str(campo_fallido)
            }
     )
-
-async def manejar_validaciones(request: Request, exc: RequestValidationError):
-    detalles = exc.errors()
-    primer_error = detalles[0]
-
-    mensaje = f"Error de validación en el campo: {primer_error['loc'][-1]} - {primer_error['msg']}"
-    return JSONResponse(
-        status_code=422,
-        content={"mensaje": mensaje, "codigo": 422}
-    )
-
-async def manejar_http_exceptions(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"mensaje": exc.detail, "codigo": exc.status_code}
-    )

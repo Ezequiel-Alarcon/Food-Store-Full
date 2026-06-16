@@ -36,13 +36,21 @@ class ProductoCategoria(SQLModel, table=True):
 class ProductoIngrediente(SQLModel, table=True):
     __tablename__ = "producto_ingrediente"
     
+    @declared_attr
+    def __table_args__(cls):
+        return (CheckConstraint("cantidad > 0", name="ck_producto_ingrediente_cantidad_positiva"),)
+
     producto_id: int = Field(
-        sa_column=Column(Integer, ForeignKey("productos.id", ondelete="CASCADE"), 
-        primary_key=True, nullable=False)
+        sa_column=Column(Integer, ForeignKey("productos.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     )
     ingrediente_id: int = Field(
-        sa_column=Column(Integer, ForeignKey("ingredientes.id", ondelete="RESTRICT"), 
-        primary_key=True, nullable=False)
+        sa_column=Column(Integer, ForeignKey("ingredientes.id", ondelete="RESTRICT"), primary_key=True, nullable=False)
+    )
+    cantidad: Decimal = Field(
+        sa_column=Column(Numeric(10, 3), nullable=False), description="Cantidad requerida para la receta"
+    )
+    unidad_medida_id: int = Field(
+        sa_column=Column(Integer, ForeignKey("unidades_medida.id", ondelete="RESTRICT"), nullable=False)
     )
     es_removible: bool = Field(default=False, description="Indica si el ingrediente es removible")
     created_at: datetime = Field(

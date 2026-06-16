@@ -48,11 +48,30 @@ class IngredienteService(base_service[Ingrediente, IngredienteCreate, Ingredient
 
     # ── Overrides del Service Genérico ───────────────────────────────────────
     
-    def get_all_ingredientes(self, offset: int = 0, limit: int = 20, is_alergeno: Optional[bool] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO ):
+    # def get_all_ingredientes(self, offset: int = 0, limit: int = 20, is_alergeno: Optional[bool] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO ):
+    #     with self.uow:
+    #         items = self.repo.get_all_filtered(estado, is_alergeno, offset, limit)
+    #         total = self.repo.count_filtered(estado, is_alergeno)
+    #         return {"data": [self._to_read_full(i) for i in items], "total": total}
+
+    def get_all_ingredientes(self, page: int = 1, size: int = 20, is_alergeno: Optional[bool] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
         with self.uow:
+            offset = (page - 1) * size
+            limit = size
+
             items = self.repo.get_all_filtered(estado, is_alergeno, offset, limit)
             total = self.repo.count_filtered(estado, is_alergeno)
-            return {"data": [self._to_read_full(i) for i in items], "total": total}
+            
+            pages = (total + size - 1) // size if total > 0 else 0
+            
+            return {
+                "items": [self._to_read_full(i) for i in items],
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": pages
+            }
+
 
     def get_by_id_full(self, ingrediente_id: int, allow_deleted: bool = False) -> IngredienteReadFull:
         with self.uow:

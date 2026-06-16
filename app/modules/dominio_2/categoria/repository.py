@@ -1,5 +1,6 @@
 from sqlmodel import Session, select, func
 from typing import Optional
+from sqlalchemy.orm import selectinload
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.categoria.models import Categoria
@@ -10,7 +11,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
 
 
     def get_by_name(self, name: str, include_deleted: bool = False) -> Optional[Categoria]:
-        query = select(Categoria).where(Categoria.nombre == name)
+        query = select(Categoria).options(selectinload(Categoria.children)).where(Categoria.nombre == name)
         if not include_deleted:
             query = query.where(Categoria.deleted_at.is_(None))
         return self.session.exec(query).first()
@@ -24,7 +25,7 @@ class CategoriaRepository(BaseRepository[Categoria]):
         offset: int = 0,
         limit: int = 20
     ) -> list[Categoria]:
-        statement = select(Categoria)
+        statement = select(Categoria).options(selectinload(Categoria.children))
         statement = self._filter_state(statement, state)
 
         if is_main is True:
@@ -56,5 +57,5 @@ class CategoriaRepository(BaseRepository[Categoria]):
 
     def get_all_ordered(self) -> list[Categoria]:
         # Método construcción del árbol en memoria
-        statement = select(Categoria).where(Categoria.deleted_at.is_(None)).order_by(Categoria.nombre.asc())
+        statement = select(Categoria).options(selectinload(Categoria.children)).where(Categoria.deleted_at.is_(None)).order_by(Categoria.nombre.asc())
         return list(self.session.exec(statement).all())

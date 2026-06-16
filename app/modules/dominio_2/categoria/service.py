@@ -73,14 +73,35 @@ class CategoriaService(base_service[Categoria, CategoriaCreate, CategoriaUpdate,
 
     # ── Overrides y Métodos Públicos ─────────────────────────────────────────
 
-    def get_all_categorias(self, offset: int = 0, limit: int = 20, is_main: Optional[bool] = None, parent_id: Optional[int] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
+    # def get_all_categorias(self, offset: int = 0, limit: int = 20, is_main: Optional[bool] = None, parent_id: Optional[int] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
+    #     with self.uow:
+    #         if parent_id is not None:
+    #             self._get_or_404(parent_id, allow_deleted=True)
+                
+    #         items = self.repo.get_all_filtered(state=estado, is_main=is_main, parent_id=parent_id, offset=offset, limit=limit)
+    #         total = self.repo.count_filtered(state=estado, is_main=is_main, parent_id=parent_id)
+    #         return {"data": [self._to_read_full(i) for i in items], "total": total}
+
+    def get_all_categorias(self, page: int = 1, size: int = 20, is_main: Optional[bool] = None, parent_id: Optional[int] = None, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
         with self.uow:
             if parent_id is not None:
                 self._get_or_404(parent_id, allow_deleted=True)
                 
+            offset = (page - 1) * size
+            limit = size
+
             items = self.repo.get_all_filtered(state=estado, is_main=is_main, parent_id=parent_id, offset=offset, limit=limit)
             total = self.repo.count_filtered(state=estado, is_main=is_main, parent_id=parent_id)
-            return {"data": [self._to_read_full(i) for i in items], "total": total}
+            
+            pages = (total + size - 1) // size if total > 0 else 0
+            
+            return {
+                "items": [self._to_read_full(i) for i in items],
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": pages
+            }
 
 
     def get_by_id_full(self, categoria_id: int, allow_deleted: bool = False) -> CategoriaReadFull:

@@ -1,14 +1,35 @@
+# ==========================================
+# Framework y Base de Datos
+# ==========================================
 fastapi[standard]
 sqlmodel
 psycopg[binary]==3.3.3
-python-dotenv==1.2.2
 alembic
-pydantic-settings
-pytest
-httpx
 
-# --- Librerías de Seguridad ---
+# ==========================================
+# Validaciones y Configuraciones
+# ==========================================
+pydantic
+pydantic-settings
+python-dotenv==1.2.2
+email-validator==2.2.0
+
+# ==========================================
+# Seguridad y Autenticación
+# ==========================================
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.20
+
+# ==========================================
+# Integraciones Externas (Imágenes)
+# ==========================================
+cloudinary
+
+# ==========================================
+# Testing
+# ==========================================
+pytest
+pytest-asyncio==0.24.0
+httpx

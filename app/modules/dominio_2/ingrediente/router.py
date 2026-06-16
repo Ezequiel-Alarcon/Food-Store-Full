@@ -4,9 +4,9 @@ from sqlmodel import Session
 
 from app.core.deps import require_role
 from app.core.database import get_session
+from app.core.schemas import PaginatedResponse
 from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteCreate,
-    IngredienteList,
     IngredienteRead,
     IngredienteReadFull,
     IngredienteUpdate
@@ -25,16 +25,18 @@ def get_ingrediente_service(session: Session = Depends(get_session)) -> Ingredie
 def create_ingrediente(data: IngredienteCreate, svc: IngredienteService = Depends(get_ingrediente_service)):
     return svc.create(data)
 
-@router.get("/", response_model=IngredienteList, summary="Listar ingredientes (paginado y filtrado)")
+
+@router.get("/", response_model=PaginatedResponse[IngredienteReadFull], summary="Listar ingredientes (paginado y filtrado)")
 def list_ingredientes(
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    page: Annotated[int, Query(ge=1, description="Número de página")] = 1,
+    size: Annotated[int, Query(ge=1, le=100, description="Cantidad de items por página")] = 20,
     estado: Annotated[EstadoFiltro, Query(description="Filtrar por estado (activo/eliminado)")] = EstadoFiltro.ACTIVO,
     is_alergeno: Annotated[Optional[bool], Query(description="Filtrar por alérgeno (true/false)")] = None,
     svc: IngredienteService = Depends(get_ingrediente_service)
 ):
     # ¡Unificamos dos endpoints en uno solo!
-    return svc.get_all_ingredientes(offset=offset, limit=limit, is_alergeno=is_alergeno, estado=estado)
+    return svc.get_all_ingredientes(page=page, size=size, is_alergeno=is_alergeno, estado=estado)
+
 
 @router.get("/{ingrediente_id}", response_model=IngredienteReadFull, summary="Obtener ingrediente")
 def get_ingrediente(
@@ -44,6 +46,7 @@ def get_ingrediente(
 ):
     return svc.get_by_id_full(ingrediente_id, allow_deleted=incluir_eliminado)
 
+
 @router.patch("/{ingrediente_id}", response_model=IngredienteRead, summary="Actualizar ingrediente", dependencies=[Depends(require_role(["ADMIN"]))])
 def update_ingrediente(
     ingrediente_id: Annotated[int, Path(ge=1)], 
@@ -52,9 +55,11 @@ def update_ingrediente(
 ):
     return svc.update(ingrediente_id, data)
 
+
 @router.delete("/{ingrediente_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Eliminar ingrediente", dependencies=[Depends(require_role(["ADMIN"]))])
 def delete_ingrediente(
     ingrediente_id: Annotated[int, Path(ge=1)], 
     svc: IngredienteService = Depends(get_ingrediente_service)
 ):
-    return svc.delete(ingrediente_id)
+    svc.delete(ingrediente_id)
+    return None

@@ -1,22 +1,21 @@
 from typing import Optional, Sequence
 from sqlmodel import select, Session, func
+from sqlalchemy.orm import selectinload
 from app.modules.dominio_1.usuario.models import Usuario, Rol
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
 
 class UsuarioRepository(BaseRepository[Usuario]):
     def __init__(self, session: Session):
-        # Le pasamos la sesión y el modelo al BaseRepository
         super().__init__(session, Usuario)
 
-
     def get_by_email(self, email: str, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> Optional[Usuario]:
-        statement = select(Usuario).where(Usuario.email == email)
+        statement = select(Usuario).options(selectinload(Usuario.roles)).where(Usuario.email == email)
         statement = self._filter_state(statement, state)
         return self.session.exec(statement).first()
     
     def get_paged_users(self, offset: int = 0, limit: int = 20, rol_codigo: Optional[str] = None, state: EstadoFiltro = EstadoFiltro.ACTIVO) -> Sequence[Usuario]:
-        statement = select(Usuario)
+        statement = select(Usuario).options(selectinload(Usuario.roles))
         statement = self._filter_state(statement, state)
 
         if rol_codigo:
@@ -35,12 +34,13 @@ class UsuarioRepository(BaseRepository[Usuario]):
 
         return self.session.exec(statement).one()
 
+
 class RolRepository(BaseRepository[Rol]):
     def __init__(self, session: Session):
         super().__init__(session, Rol)
 
     def get_by_codigo(self, codigo: str) -> Optional[Rol]:
-        #return self.session.get(Rol, codigo)
-        """Busca por el campo 'codigo', no por PK. Retorna None si está eliminado."""
         statement = select(Rol).where(Rol.codigo == codigo)
         return self.session.exec(statement).first()
+        #return self.session.get(Rol, codigo)
+        """Busca por el campo 'codigo', no por PK. Retorna None si está eliminado."""

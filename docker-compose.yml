@@ -3,7 +3,7 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: lucas
       POSTGRES_DB: foodstore
     ports:
       - "5433:5432"

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,10 +17,34 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # ─── Logging ─────────────────────────────────────────────────────────────
+    LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+
+
+    # ─── Rate Limiting ───────────────────────────────────────────────────────
+    RATE_LIMIT_DEFAULT_PER_MINUTE: int = 60
+    RATE_LIMIT_DEFAULT_BURST: int = 10
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 5
+    RATE_LIMIT_AUTH_BURST: int = 5
+
+    @property
+    def rate_limit_default_burst(self) -> int:
+        return self.RATE_LIMIT_DEFAULT_BURST
+
+    @property
+    def rate_limit_default_per_minute(self) -> int:
+        return self.RATE_LIMIT_DEFAULT_PER_MINUTE
+
+    @property
+    def rate_limit_auth_burst(self) -> int:
+        return self.RATE_LIMIT_AUTH_BURST
+
+    @property
+    def rate_limit_auth_per_minute(self) -> int:
+        return self.RATE_LIMIT_AUTH_PER_MINUTE
     
     @model_validator(mode="after")
     def fix_database_url(self):
-        # Build from individual parts if DATABASE_URL not provided
         if not self.DATABASE_URL and all([
             self.POSTGRES_USER,
             self.POSTGRES_PASSWORD,
@@ -42,7 +66,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="allow"   # Allow extra fields so typos in .env don't crash startup
+        extra="allow" 
     )
 
 settings = Settings()

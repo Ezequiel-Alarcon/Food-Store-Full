@@ -1,9 +1,12 @@
 import hashlib
+import secrets
 from app.core.config import settings
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Optional
+from sqlmodel import select
+        
 
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork
 from app.modules.dominio_1.usuario.schemas import UserCreate, UserUpdateAdmin, UserUpdateClient, Token
@@ -111,14 +114,15 @@ class UsuarioService:
 
             # --- GENERACIÓN DE TOKENS ---
             
-            # 1. Access Token
+           # 1. Access Token
             roles_codigos = [rol.codigo for rol in user.roles]
             access_token = create_access_token(
                 data={"sub": str(user.id), "roles": roles_codigos}
             )
 
-            # 2. Refresh Token
-            token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+            # 2. Refresh Token (Generamos un string seguro aleatorio real)
+            refresh_token_plain = secrets.token_urlsafe(32)
+            token_hash = hashlib.sha256(refresh_token_plain.encode()).hexdigest()
             expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
             nuevo_rt = RefreshToken(
@@ -131,6 +135,7 @@ class UsuarioService:
 
             return Token(
                 access_token=access_token,
+                refresh_token=refresh_token_plain,
                 token_type="bearer",
                 expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
             )
@@ -161,21 +166,101 @@ class UsuarioService:
                     objetos_roles.append(rol)
 
             return self._update_user_core(user_id, data_dict=data, nuevos_roles=objetos_roles)
+        
+
+    def refresh_token(self, token_ingresado: str) -> Token:
+        with self.uow as uow:
+            # 1. Hashear el token recibido para poder buscarlo en la base de datos
+            token_hash = hashlib.sha256(token_ingresado.encode()).hexdigest()
+            
+            # 2. Buscar el token en la BD
+            statement = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+            rt_db = uow._session.exec(statement).first()
+            
+            if not rt_db:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, 
+                    detail="Refresh token inválido"
+                )
+            
+            # 3. Validar que no esté expirado
+            if rt_db.expires_at < datetime.now(timezone.utc):
+                uow._session.delete(rt_db) # Lo borramos para mantener limpia la BD
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, 
+                    detail="Refresh token expirado. Por favor inicie sesión nuevamente."
+                )
+            
+            # 4. Traer al usuario asociado
+            user = uow.usuarios.get_by_id(rt_db.usuario_id)
+            if not user or user.deleted_at:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED, 
+                    detail="El usuario asociado no existe o está inactivo"
+                )
+            
+            # 5. --- ROTACIÓN DE TOKENS ---
+            # Generamos un nuevo Access Token
+            roles_codigos = [rol.codigo for rol in user.roles]
+            nuevo_access = create_access_token(data={"sub": str(user.id), "roles": roles_codigos})
+            
+            # Generamos un nuevo Refresh Token y pisamos el anterior
+            nuevo_refresh_plain = secrets.token_urlsafe(32)
+            nuevo_hash = hashlib.sha256(nuevo_refresh_plain.encode()).hexdigest()
+            
+            rt_db.token_hash = nuevo_hash
+            rt_db.expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            uow._session.add(rt_db)
+            
+            return Token(
+                access_token=nuevo_access,
+                refresh_token=nuevo_refresh_plain,
+                token_type="bearer",
+                expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+            )
 
 
     # ==========================================
     # --- FLUJO DE ADMIN (Privado) ---
     # ==========================================
 
-    def get_all_users(self,offset: int = 0, limit: int = 20, rol_codigo: Optional[str] = None):
-        with self.uow:
-            usuarios_paginados = self.uow.usuarios.get_paged_users(offset=offset, limit=limit, rol_codigo=rol_codigo, state = EstadoFiltro.ACTIVO)
+    # def get_all_users(self,offset: int = 0, limit: int = 20, rol_codigo: Optional[str] = None):
+    #     with self.uow:
+    #         usuarios_paginados = self.uow.usuarios.get_paged_users(offset=offset, limit=limit, rol_codigo=rol_codigo, state = EstadoFiltro.ACTIVO)
 
-            total = self.uow.usuarios.count_users(rol_codigo=rol_codigo, state=EstadoFiltro.ACTIVO)
-        return{
-            "data": usuarios_paginados,
-            "total": total
-        }
+    #         total = self.uow.usuarios.count_users(rol_codigo=rol_codigo, state=EstadoFiltro.ACTIVO)
+    #     return{
+    #         "data": usuarios_paginados,
+    #         "total": total
+    #     }
+
+    def get_all_users(self, page: int = 1, size: int = 20, rol_codigo: Optional[str] = None):
+        with self.uow:
+            offset = (page - 1) * size
+            limit = size
+
+            usuarios_paginados = self.uow.usuarios.get_paged_users(
+                offset=offset,
+                limit=limit,
+                rol_codigo=rol_codigo,
+                state=EstadoFiltro.ACTIVO
+            )
+
+            total = self.uow.usuarios.count_users(
+                rol_codigo=rol_codigo,
+                state=EstadoFiltro.ACTIVO
+            )
+
+            pages  = (total + size - 1) // size if total > 0 else 0
+
+            return {
+                "items": usuarios_paginados,
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": pages
+            }
+        
 
     def desactivar_usuario(self, user_id: int):
         """Aplica el borrado lógico."""
