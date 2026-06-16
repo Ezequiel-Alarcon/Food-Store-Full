@@ -602,6 +602,7 @@
                     await fetchKdsOrders();
                 } else {
                     const data = await response.json();
+                    console.log(data)
                     errorDiv.innerText = data.detail || "Credenciales incorrectas o rol no autorizado.";
                     errorDiv.style.display = 'block';
                 }
@@ -626,7 +627,8 @@
             }
         }
 
-        // Establish real-time WebSocket connection using cookie auth
+        // Establish real-time WebSocket connection using cookie auth.
+        // The server subscribes the socket to the role:KDS room after validating the user.
         function connectWebSocket() {
             if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
                 return;
@@ -680,18 +682,19 @@
             }
         }
 
-        // Handle real-time WebSocket broadcasts
+        // Handle real-time WebSocket room events (room:KDS)
         function handleRealtimeEvent(msg) {
             const { event, data } = msg;
-            
-            if (event === "PEDIDO_CONFIRMADO") {
-                // Add to list if not already present
+
+            if (event === "NUEVO_PEDIDO") {
+                // Pedido en PENDIENTE: todavia no se muestra en el KDS
+                showToast(`📋 Nuevo pedido recibido: #${data.id}`);
+            } else if (event === "PEDIDO_CONFIRMADO") {
                 if (!activeOrders.some(o => o.id === data.id)) {
                     activeOrders.push(data);
                     showToast(`🔔 Nuevo pedido confirmado: #${data.id}`);
                 }
             } else if (event === "PEDIDO_EN_PREPARACION") {
-                // Update local order state
                 const order = activeOrders.find(o => o.id === data.id);
                 if (order) {
                     order.estado_codigo = 'EN_PREP';
@@ -700,12 +703,24 @@
                     activeOrders.push(data);
                 }
             } else if (event === "PEDIDO_EN_CAMINO") {
-                // Remove from cocina board because it is now out for delivery
                 activeOrders = activeOrders.filter(o => o.id !== data.id);
                 showToast(`📦 Pedido #${data.id} despachado con delivery!`);
-            } else if (event === "PEDIDO_ENTREGADO") {
-                // Ensure removed from board if delivered
+            } else if (event === "PEDIDO_CANCELADO") {
                 activeOrders = activeOrders.filter(o => o.id !== data.id);
+                showToast(`❌ Pedido #${data.id} cancelado.`);
+            } else if (event === "ESTADO_ACTUALIZADO") {
+                // Evento generico: sincronizar segun el estado recibido
+                const visibleStates = ['CONFIRMADO', 'EN_PREP'];
+                if (visibleStates.includes(data.estado_codigo)) {
+                    const index = activeOrders.findIndex(o => o.id === data.id);
+                    if (index === -1) {
+                        activeOrders.push(data);
+                    } else {
+                        activeOrders[index] = data;
+                    }
+                } else {
+                    activeOrders = activeOrders.filter(o => o.id !== data.id);
+                }
             }
 
             renderBoard();
@@ -731,8 +746,8 @@
 
                 if (response.ok) {
                     const updatedOrder = await response.json();
-                    // State will be updated locally via the WS broadcast event,
-                    // but we can update it locally immediately for faster UI feedback.
+                    // El estado se actualizara localmente via el evento de la room WS,
+                    // pero lo reflejamos ya para una respuesta visual inmediata.
                     const index = activeOrders.findIndex(o => o.id === orderId);
                     if (index !== -1) {
                         if (nextState === 'EN_CAMINO') {
