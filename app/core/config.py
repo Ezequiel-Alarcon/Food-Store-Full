@@ -22,6 +22,17 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
     
+    # --- MercadoPago ---
+    MP_ACCESS_TOKEN: Optional[str] = None
+    MP_PUBLIC_KEY: Optional[str] = None
+    MP_WEBHOOK_URL: Optional[str] = None
+    NGROK_URL: Optional[str] = None
+    
+    # --- CORS y Frontend ---
+    CORS_ORIGINS: str = "http://localhost:5173"
+    VITE_FRONTEND_URL: str = "http://localhost:5173"
+    VITE_API_URL: str = "http://localhost:8000"
+
     @model_validator(mode="after")
     def fix_database_url(self):
         # Build from individual parts if DATABASE_URL not provided

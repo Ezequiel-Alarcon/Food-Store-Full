@@ -59,3 +59,8 @@ Thumbs.db
 # Archivos generados localmente
 # =========================================
 diringest_output.txt
+
+# Archivos y carpetas ignorados del proyecto
+manuall.md
+ejemplo-mp/
+docs/
