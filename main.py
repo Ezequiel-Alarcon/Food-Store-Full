@@ -4,6 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlmodel import SQLModel
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.cloudinary_router import router as imagen_router
 from app.core.database import engine
 
 from app.modules.dominio_2.UnidadMedida.routers import router as unidad_medida_router
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(producto_router,      prefix="/api/v1/productos",      tags=["Productos"])
     app.include_router(ingrediente_router,   prefix="/api/v1/ingredientes",   tags=["Ingredientes"])
     app.include_router(unidad_medida_router, prefix="/api/v1/unidades-medida",tags=["Unidades de Medida"])
+    app.include_router(imagen_router,        prefix="/api/v1",                tags=["Imágenes"])
 
     # ── Dominio 3 ──────────────────────────────────────
     app.include_router(pedido_router,        prefix="/api/v1/pedidos",        tags=["Pedidos"])

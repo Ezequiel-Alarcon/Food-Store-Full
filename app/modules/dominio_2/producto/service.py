@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from typing import Optional, cast
 from sqlmodel import Session
 
+from app.core.cloudinary_service import eliminar_imagen, eliminar_multiples_imagenes
 from app.core.enums import EstadoFiltro
 from app.core.service import base_service
 from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
@@ -72,6 +73,7 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             descripcion=producto.descripcion,
             precio_base=producto.precio_base,
             imagenes_url=producto.imagenes_url,
+            imagenes_public_id=producto.imagenes_public_id,
             stock_cantidad=producto.stock_cantidad,
             disponible=producto.disponible,
             categorias=categorias,
@@ -149,6 +151,9 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
     def update(self, producto_id: int, data: ProductoUpdate) -> ProductoReadFull:
         with self.uow:
             producto = self._get_or_404(producto_id)
+            # Capturamos los public_ids viejos ANTES del patch para poder
+            # detectar cuáles imágenes fueron removidas del set nuevo.
+            public_ids_viejos = list(producto.imagenes_public_id or [])
             patch = data.model_dump(exclude_unset=True, exclude={
                                     "categoria_ids", "ingredientes"})
 
@@ -207,7 +212,32 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
                     )
                     self.uow.producto_ingredientes.add(link_ing)
 
-            return self._to_read_full(producto)
+            read = self._to_read_full(producto)
+            public_ids_nuevos = list(producto.imagenes_public_id or [])
+
+        # Limpieza de Cloudinary fuera de la transacción. Si la lista de
+        # public_ids cambió (se removieron imágenes, o se reemplazaron
+        # todas), los public_ids viejos que ya no estén en el set nuevo
+        # quedan huérfanos y se eliminan.
+        if "imagenes_public_id" in patch:
+            set_viejo = {pid for pid in public_ids_viejos if pid}
+            set_nuevo = {pid for pid in public_ids_nuevos if pid}
+            imagenes_a_borrar = set_viejo - set_nuevo
+            for pid in imagenes_a_borrar:
+                eliminar_imagen(pid)
+
+        return read
+
+
+    def delete(self, producto_id: int):
+        with self.uow:
+            producto = self._get_or_404(producto_id)
+            public_ids_imagenes = list(producto.imagenes_public_id or [])
+            self.repo.delete(producto)
+        # Soft delete ya commiteado; eliminamos todas las imágenes del
+        # producto en Cloudinary.
+        eliminar_multiples_imagenes(public_ids_imagenes)
+        return {"mensaje": f"Producto {producto_id} eliminado/a correctamente"}
 
     def toggle_disponibilidad(self, producto_id: int) -> ProductoReadFull:
         with self.uow:

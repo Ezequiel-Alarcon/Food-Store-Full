@@ -2,9 +2,10 @@ from fastapi import HTTPException
 from typing import cast, Optional
 from sqlmodel import Session
 
+from app.core.cloudinary_service import eliminar_imagen
 from app.core.enums import EstadoFiltro
 # IMPORTANTE: Acá importás tu base_service desde donde lo tengas
-from app.core.service import base_service 
+from app.core.service import base_service
 from app.modules.dominio_2.ingrediente.models import Ingrediente
 from app.modules.dominio_2.ingrediente.schemas import (
     IngredienteCreate,
@@ -43,6 +44,8 @@ class IngredienteService(base_service[Ingrediente, IngredienteCreate, Ingredient
             nombre=ingrediente.nombre,
             es_alergeno=ingrediente.es_alergeno,
             descripcion=ingrediente.descripcion,
+            imagen_url=ingrediente.imagen_url,
+            imagen_public_id=ingrediente.imagen_public_id,
             productos=productos,
         )
 
@@ -70,11 +73,27 @@ class IngredienteService(base_service[Ingrediente, IngredienteCreate, Ingredient
     def update(self, item_id: int, item_in: IngredienteUpdate) -> IngredienteRead:
         with self.uow:
             item_db = self._get_or_404(item_id)
-            
+            public_id_viejo = item_db.imagen_public_id
+
             if item_in.nombre and item_in.nombre != item_db.nombre:
                 self._validar_nombre_unico(item_in.nombre, exclude_id=item_id)
 
             item_actualizado = self._apply_update_fields(item_db, item_in)
             self.repo.update(item_actualizado)
-            
-            return IngredienteRead.model_validate(item_actualizado)
+            read = IngredienteRead.model_validate(item_actualizado)
+            public_id_nuevo = item_actualizado.imagen_public_id
+
+        if public_id_nuevo != public_id_viejo:
+            eliminar_imagen(public_id_viejo)
+
+        return read
+
+
+    def delete(self, item_id: int):
+        with self.uow:
+            item_db = self._get_or_404(item_id)
+            public_id_imagen = item_db.imagen_public_id
+            self.repo.delete(item_db)
+        # Soft delete ya commiteado; eliminamos la imagen en Cloudinary.
+        eliminar_imagen(public_id_imagen)
+        return {"message": f"Ingrediente {item_id} eliminado/a correctamente"}

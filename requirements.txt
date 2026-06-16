@@ -6,6 +6,7 @@ alembic
 pydantic-settings
 pytest
 httpx
+cloudinary
 
 # --- Librerías de Seguridad ---
 python-jose[cryptography]==3.3.0

@@ -32,6 +32,10 @@ class ProductoBase(SQLModel):
     precio_base: Decimal = Field(..., description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
         default=None, description="URLs de imágenes del producto")
+    imagenes_public_id: Optional[list[str]] = Field(
+        default=None,
+        description="Public IDs de las imágenes en Cloudinary, paralelos a imagenes_url",
+    )
     stock_cantidad: int = Field(
         default=0, ge=0, description="Cantidad en stock")
     disponible: bool = Field(
@@ -68,8 +72,12 @@ class ProductoUpdate(SQLModel):
         default=None, description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
         default=None, description="URLs de imágenes del producto")
+    imagenes_public_id: Optional[list[str]] = Field(
+        default=None,
+        description="Public IDs de las imágenes en Cloudinary, paralelos a imagenes_url",
+    )
     stock_cantidad: Optional[int] = Field(
-        default=None, description="Cantidad en stock", ge=0)
+        default=None, ge=0, description="Cantidad en stock")
     disponible: Optional[bool] = Field(
         default=None, description="Indica si el producto está disponible")
     categoria_ids: Optional[list[int]] = Field(
@@ -92,6 +100,10 @@ class ProductoBasicRead(SQLModel):
     precio_base: Decimal = Field(..., description="Precio del producto", ge=0)
     imagenes_url: Optional[list[str]] = Field(
         default=None, description="URLs de imágenes del producto")
+    imagenes_public_id: Optional[list[str]] = Field(
+        default=None,
+        description="Public IDs de las imágenes en Cloudinary, paralelos a imagenes_url",
+    )
 
 
 class ProductoReadFull(ProductoRead):
