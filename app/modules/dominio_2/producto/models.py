@@ -78,7 +78,11 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
         sa_column=Column(Numeric(10, 2), nullable=False),
         description="Precio base del producto"
     )
-    imagenes_url: Optional[list[str]] = Field(default=None, sa_column=Column(ARRAY(String)))    
+    imagenes_url: Optional[list[str]] = Field(default=None, sa_column=Column(ARRAY(String)))
+    imagenes_public_id: Optional[list[str]] = Field(
+        default=None, sa_column=Column(ARRAY(String)),
+        description="Public IDs de las imágenes en Cloudinary, paralelos a imagenes_url",
+    )
     stock_cantidad: int = Field(default=0, ge=0, description="Cantidad en stock")
     disponible: bool = Field(default=True, description="Si el producto está disponible para venta")
     

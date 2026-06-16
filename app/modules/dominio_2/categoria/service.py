@@ -2,6 +2,7 @@ from fastapi import HTTPException
 from typing import cast, Optional
 from sqlmodel import Session
 
+from app.core.cloudinary_service import eliminar_imagen
 from app.core.enums import EstadoFiltro
 from app.core.service import base_service
 from app.modules.dominio_2.categoria.models import Categoria
@@ -48,6 +49,7 @@ class CategoriaService(base_service[Categoria, CategoriaCreate, CategoriaUpdate,
             nombre=categoria.nombre,
             descripcion=categoria.descripcion,
             imagen_url=categoria.imagen_url,
+            imagen_public_id=categoria.imagen_public_id,
             productos=productos,
         )
     
@@ -67,6 +69,7 @@ class CategoriaService(base_service[Categoria, CategoriaCreate, CategoriaUpdate,
             nombre=categoria.nombre,
             descripcion=categoria.descripcion,
             imagen_url=categoria.imagen_url,
+            imagen_public_id=categoria.imagen_public_id,
             subcategorias=subcategorias,
         )
     
@@ -117,6 +120,7 @@ class CategoriaService(base_service[Categoria, CategoriaCreate, CategoriaUpdate,
     def update(self, item_id: int, item_in: CategoriaUpdate) -> CategoriaReadFull:
         with self.uow:
             categoria_db = self._get_or_404(item_id)
+            public_id_viejo = categoria_db.imagen_public_id
             patch = item_in.model_dump(exclude_unset=True)
 
             if "nombre" in patch and patch["nombre"] != categoria_db.nombre:
@@ -131,17 +135,31 @@ class CategoriaService(base_service[Categoria, CategoriaCreate, CategoriaUpdate,
 
             item_actualizado = self._apply_update_fields(categoria_db, item_in)
             self.repo.update(item_actualizado)
-            return self._to_read_full(item_actualizado)
+            read = self._to_read_full(item_actualizado)
+            public_id_nuevo = item_actualizado.imagen_public_id
+
+        # Limpieza de Cloudinary fuera de la transacción: si la imagen fue
+        # reemplazada, la vieja queda huérfana y debe borrarse. Si la API
+        # externa falla, la DB ya está commiteada y el registro queda
+        # consistente (loggeo de error en cloudinary_service).
+        if public_id_nuevo != public_id_viejo:
+            eliminar_imagen(public_id_viejo)
+
+        return read
 
 
     def delete(self, item_id: int):
         with self.uow:
             categoria = self._get_or_404(item_id)
-            
-            hijas = self.repo.get_all_filtered(parent_id=item_id, limit=1000) 
+            public_id_imagen = categoria.imagen_public_id
+
+            hijas = self.repo.get_all_filtered(parent_id=item_id, limit=1000)
             for hija in hijas:
                 hija.parent_id = categoria.parent_id
                 self.repo.update(hija)
-            
+
             self.repo.delete(categoria)
+        # Soft delete ya commiteado; eliminamos la imagen en Cloudinary
+        # aunque no se pueda deshacer el delete (la consigna lo pide así).
+        eliminar_imagen(public_id_imagen)
         return {"mensaje": f"Categoría {item_id} eliminada correctamente"}
