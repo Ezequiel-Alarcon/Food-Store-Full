@@ -8,7 +8,6 @@ from sqlmodel import Session
 import mercadopago
 from app.core.config import settings
 
-# Importaciones de los modelos y esquemas necesarios
 from app.modules.dominio_3.Pedido.models import Pedido
 from app.modules.dominio_3.Pago.models import Pago
 from app.modules.dominio_3.Pago.schemas import PagoCrearResponse, PagoEstadoResponse
@@ -153,7 +152,6 @@ class PaymentService:
             with PagoUnitOfWork(self._session) as uow:
                 pago = uow.pagos.get_by_mp_payment_id(int(pago_mp_id))
                 
-                # Novedad: Si no lo encontramos por payment_id, lo buscamos por el external_reference (pedido_id)
                 if not pago and mp_info.get("external_reference"):
                     try:
                         ped_id = int(mp_info["external_reference"])
