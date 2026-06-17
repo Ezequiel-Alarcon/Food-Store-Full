@@ -127,6 +127,8 @@ def cambiar_estado_pedido(
 
     background_tasks.add_task(
         manager.send_to_room, "role:KDS", evento, resultado.model_dump(mode="json"))
+    background_tasks.add_task(
+        manager.send_to_room, f"pedido:{pedido_id}", evento, resultado.model_dump(mode="json"))
 
     return resultado
 
@@ -239,6 +241,59 @@ async def websocket_endpoint(
 
     # Por las dudas, si ocurre CUALQUIER otro error raro, también lo desconectamos
     # para no dejar conexiones fantasma ocupando memoria RAM en el servidor.
+    except Exception:
+        await manager.disconnect(websocket)
+
+
+@router.websocket("/{pedido_id}/ws")
+async def websocket_pedido_endpoint(
+    pedido_id: int,
+    websocket: WebSocket,
+    manager: ConnectionManager = Depends(get_connection_manager),
+    session: Session = Depends(get_session)
+):
+    token = websocket.cookies.get("access_token")
+
+    if not token:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token de autenticacion requerido")
+        return
+
+    payload = decode_access_token(token)
+    if not payload:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token inválido o expirado")
+        return
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token inválido")
+        return
+        
+    try:
+        user_id = int(user_id_str)
+    except ValueError:
+        await websocket.accept()
+        await websocket.close(code=1008, reason="Token inválido (sub no es entero)")
+        return
+
+    pedido_uow = PedidoUnitOfWork(session)
+    with pedido_uow:
+        pedido = pedido_uow.pedidos.get_by_id(pedido_id)
+        if not pedido or pedido.usuario_id != user_id:
+            await websocket.accept()
+            await websocket.close(code=1008, reason="Pedido no encontrado o permisos insuficientes")
+            return
+
+    await manager.connect(websocket, "CLIENT", user_id)
+    manager.join_role_room(websocket, f"pedido:{pedido_id}")
+
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
     except Exception:
         await manager.disconnect(websocket)
 

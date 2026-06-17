@@ -1,10 +1,15 @@
 import logging
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, BackgroundTasks
 from sqlmodel import Session
 
 from app.core.database import get_session
 from app.modules.dominio_3.Pago.schemas import CrearPagoRequest, PagoCrearResponse, PagoEstadoResponse
 from app.modules.dominio_3.Pago.service import PaymentService
+
+from fastapi.responses import RedirectResponse
+from app.core.config import settings
+import urllib.parse
+from app.core.websocket import manager
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,7 @@ def crear_pago(
 @router.post("/webhook", status_code=200)
 async def webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     svc: PaymentService = Depends(get_payment_service),
 ):
     """
@@ -45,7 +51,29 @@ async def webhook(
         else:
             data = dict(await request.form())
             
-        return svc.procesar_webhook(data, query_params=query_params)
+        result = svc.procesar_webhook(data, query_params=query_params)
+        
+        # Misma metodología que PedidoRouter: el router dispara el WebSocket
+        if result.get("status") == "processed" and "pedido_actualizado" in result:
+            pedido = result["pedido_actualizado"]
+
+            
+            EVENTOS_WS = {
+                "CONFIRMADO": "PEDIDO_CONFIRMADO",
+                "EN_PREP": "PEDIDO_EN_PREPARACION",
+                "EN_CAMINO": "PEDIDO_EN_CAMINO",
+                "CANCELADO": "PEDIDO_CANCELADO",
+            }
+            evento = EVENTOS_WS.get(pedido.estado_codigo, "ESTADO_ACTUALIZADO")
+            
+            background_tasks.add_task(
+                manager.send_to_room, "role:KDS", evento, pedido.model_dump(mode="json")
+            )
+            background_tasks.add_task(
+                manager.send_to_room, f"pedido:{pedido.id}", evento, pedido.model_dump(mode="json")
+            )
+            
+        return result
     except Exception as e:
         logger.exception("Error en webhook MP")
         return {"status": "error", "reason": str(e)}
@@ -61,3 +89,24 @@ def consultar_pago(
     Rúbrica: Consulta el pago asociado a un pedido.
     """
     return svc.obtener_pago(pedido_id)
+
+# 4. Endpoint para redirigir de vuelta al frontend (El Puente)
+@router.get("/redirect/{pedido_id}/{status}")
+def mp_redirect(pedido_id: int, status: str, request: Request):
+    """
+    MercadoPago nos manda de vuelta acá (vía ngrok).
+    Agarramos los query params de MP y se los pasamos al frontend en la redirección.
+    """
+    frontend_url = getattr(settings, "VITE_FRONTEND_URL", "http://localhost:5173")
+    
+    # Transformamos el diccionario de query params a un string (ej: payment_id=123&status=approved)
+    query_params = dict(request.query_params)
+    query_string = urllib.parse.urlencode(query_params)
+    
+    # Armamos la ruta a nuestra nueva página, pasándole el status en la URL también
+    redirect_url = f"{frontend_url}/payment/feedback/{pedido_id}?status={status}"
+    
+    if query_string:
+        redirect_url += f"&{query_string}"
+        
+    return RedirectResponse(url=redirect_url)
