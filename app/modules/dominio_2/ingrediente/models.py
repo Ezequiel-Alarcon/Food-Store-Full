@@ -6,6 +6,7 @@ from sqlmodel import SQLModel
 
 if TYPE_CHECKING:
     from ..producto.models import Producto
+    from ..UnidadMedida.models import UnidadMedida
 
 class Ingrediente(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "ingredientes"
@@ -21,6 +22,9 @@ class Ingrediente(UniqueAuditableMixin, SQLModel, table=True):
         default=None, description="Public ID de la imagen en Cloudinary"
     )
 
+    unidad_medida_id: int = Field(foreign_key="unidades_medida.id") 
+    
+    unidad_medida: "UnidadMedida" = Relationship()
     # Relación con productos a través de la tabla intermedia
     productos: list["Producto"] = Relationship(
         back_populates="ingredientes",

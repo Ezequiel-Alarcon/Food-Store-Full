@@ -2,8 +2,10 @@ from typing import Generic, TypeVar, Type
 from fastapi import HTTPException
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Session
+
 from app.core.unit_of_work import UnitOfWork
 from app.core.repository import BaseRepository
+
 from datetime import datetime, timezone
 
 ModelType = TypeVar("ModelType", bound=SQLModel)
@@ -36,11 +38,29 @@ class base_service(Generic[ModelType, CreateSchemaType, UpdateSchemaType, UoWTyp
         return getattr(self.uow, self._repo)
 
 
-    def get_all(self, offset: int = 0, limit: int = 20):
+    # def get_all(self, offset: int = 0, limit: int = 20):
+    #     with self.uow:
+    #         items = self.repo.get_all_by_state(offset=offset, limit= limit)
+    #         total = self.repo.count_model()
+    #         return {"data": items, "total": total}
+
+    def get_all(self, page: int = 1, size: int = 20):
         with self.uow:
+            offset = (page - 1) * size
+            limit = size
+
             items = self.repo.get_all_by_state(offset=offset, limit= limit)
-            total = self.repo.count_model()
-            return {"data": items, "total": total}
+            total  =self.repo.count_model()
+
+            pages = (total + size - 1) // size if total > 0 else 0
+
+            return {
+                "items": items,
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": pages
+            }
         
 
     def _get_or_404(self, item_id, allow_deleted: bool = False) -> ModelType:

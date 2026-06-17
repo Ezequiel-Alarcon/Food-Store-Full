@@ -24,7 +24,7 @@ class IngredienteBase(SQLModel):
 
 
 class IngredienteCreate(IngredienteBase):
-    pass
+    unidad_medida_id: Optional[int] = Field(default=1, description="ID de la unidad de medida")
 
 
 class IngredienteUpdate(SQLModel):

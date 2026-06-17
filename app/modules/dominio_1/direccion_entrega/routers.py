@@ -38,6 +38,7 @@ def actualizar_direccion(direccion_id: int, data: DireccionUpdate, current_user:
 def marcar_como_principal(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
     return svc.marcar_como_principal(direccion_id=direccion_id, usuario_id=current_user.id)
 
-@router.delete("/{direccion_id}")
-def eliminar_direccion(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
-    return svc.eliminar_direccion_propia(direccion_id=direccion_id, usuario_id=current_user.id)
+@router.delete("/{direccion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_direccion(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> None:
+    svc.eliminar_direccion_propia(direccion_id=direccion_id, usuario_id=current_user.id)
+    return None

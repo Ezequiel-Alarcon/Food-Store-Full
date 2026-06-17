@@ -16,6 +16,7 @@ class UnidadMedidaService(base_service[UnidadMedida, UnidadMedidaCreate, UnidadM
             "unidades_medida", 
             UnidadMedida
         )
+        
 
     # ── Reglas de Negocio ───────────────────────────────────────────────────
     def _validar_unicidad(self, nombre: Optional[str] = None, simbolo: Optional[str] = None, exclude_id: Optional[int] = None) -> None:
@@ -29,19 +30,41 @@ class UnidadMedidaService(base_service[UnidadMedida, UnidadMedidaCreate, UnidadM
             if existente and existente.id != exclude_id:
                 raise HTTPException(status_code=400, detail=f"El simbolo '{simbolo}' ya está en uso por otra unidad de medida")
 
+
     # ── Overrides del Service Genérico ──────────────────────────────────────
     
-    def get_all_unidades(self, offset: int = 0, limit: int = 20, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
+    # def get_all_unidades(self, offset: int = 0, limit: int = 20, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
+    #     with self.uow:
+    #         items = self.repo.get_all_by_state(state=estado, offset=offset, limit=limit)
+    #         total = self.repo.count_model(state=estado)
+    #         return {"data": items, "total": total}
+
+
+    def get_all_unidades(self, page: int = 1, size: int = 20, estado: EstadoFiltro = EstadoFiltro.ACTIVO):
         with self.uow:
+            offset = (page - 1) * size
+            limit = size
+
             items = self.repo.get_all_by_state(state=estado, offset=offset, limit=limit)
             total = self.repo.count_model(state=estado)
-            return {"data": items, "total": total}
+            
+            pages = (total + size - 1) // size if total > 0 else 0
+            
+            return {
+                "items": items,
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": pages
+            }
+
 
     def create(self, item_in: UnidadMedidaCreate) -> UnidadMedidaRead:
         with self.uow:
             self._validar_unicidad(nombre=item_in.nombre, simbolo=item_in.simbolo)
             nuevo_item = super().create(item_in)
             return UnidadMedidaRead.model_validate(nuevo_item)
+
 
     def update(self, item_id: int, item_in: UnidadMedidaUpdate) -> UnidadMedidaRead:
         with self.uow:
