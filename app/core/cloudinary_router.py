@@ -15,34 +15,35 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from sqlmodel import Field, SQLModel
 
-from app.core.cloudinary_service import ImagenSubida, subir_imagen, eliminar_imagen
+from app.core.cloudinary_service import ImagenSubida, subir_imagen
 from app.core.deps import require_role
 
 
 TipoEntidadImagen = Literal["categoria", "ingrediente", "producto"]
 
 
-class CloudinaryResponse(SQLModel):
+class ImagenUploadResponse(SQLModel):
     """Respuesta normalizada que el cliente persiste junto a la entidad."""
-    secure_url: str = Field(..., description="URL pública (https) de la imagen")
-    public_id: str = Field(
+    imagen_url: str = Field(..., description="URL pública (https) de la imagen")
+    imagen_public_id: str = Field(
         ...,
         description="ID interno en Cloudinary, requerido para reemplazo/borrado",
     )
 
 
-router = APIRouter(prefix="/uploads", tags=["Uploads"])
+router = APIRouter(prefix="/imagenes", tags=["Imágenes"])
 
 
 @router.post(
-    "/imagen",
-    response_model=CloudinaryResponse,
+    "/upload",
+    response_model=ImagenUploadResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Sube una imagen a Cloudinary",
+    summary="Subir una imagen a Cloudinary",
     description=(
         "Sube un archivo de imagen (jpg/png/webp/gif/avif, máx 5 MB) a "
         "la carpeta correspondiente al `tipo` de entidad y devuelve la "
-        "URL pública junto con el public_id. Reservado a ADMIN."
+        "URL pública junto con el public_id para almacenarlo en la "
+        "entidad. Reservado a ADMIN."
     ),
     dependencies=[Depends(require_role(["ADMIN"]))],
 )
@@ -52,22 +53,9 @@ def upload_imagen(
         TipoEntidadImagen,
         Form(description="Carpeta destino en Cloudinary según la entidad"),
     ] = "categoria",
-) -> CloudinaryResponse:
+) -> ImagenUploadResponse:
     resultado: ImagenSubida = subir_imagen(archivo, tipo=tipo)
-    return CloudinaryResponse(
-        secure_url=resultado.imagen_url,
-        public_id=resultado.imagen_public_id,
+    return ImagenUploadResponse(
+        imagen_url=resultado.imagen_url,
+        imagen_public_id=resultado.imagen_public_id,
     )
-
-
-@router.delete(
-    "/imagen/{public_id:path}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Elimina una imagen de Cloudinary",
-    description="Elimina una imagen de Cloudinary por su public_id. Reservado a ADMIN.",
-    dependencies=[Depends(require_role(["ADMIN"]))],
-)
-def delete_imagen(public_id: str):
-    # La rúbrica especifica que puede contener barras, por eso usamos :path
-    eliminar_imagen(public_id)
-    return None
