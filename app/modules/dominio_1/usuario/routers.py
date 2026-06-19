@@ -58,15 +58,32 @@ def login(
 
 
 @auth_router.post("/refresh")
-def refresh(data: RefreshTokenRequest, svc: UsuarioServiceDep) -> Any:
+def refresh(response: Response, data: RefreshTokenRequest, svc: UsuarioServiceDep) -> Any:
     """Refresca el token de sesión usando un refresh_token."""
-    # Asegurate de agregar el método refresh_token() en UsuarioService
-    return svc.refresh_token(data.refresh_token)
+    # 1. Generamos los nuevos tokens desde el servicio
+    token_obj = svc.refresh_token(data.refresh_token)
+    
+    # 2. Inyectamos el nuevo access token en la cookie para el frontend
+    response.set_cookie(
+        key="access_token",
+        value=token_obj.access_token,
+        httponly=True,
+        max_age=token_obj.expires_in,
+        expires=token_obj.expires_in,
+        samesite="lax",
+        secure=False, 
+        path="/"
+    )
+    return token_obj
 
 
 @auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response, current_user: CurrentUser) -> None:
-    """Cierra sesión borrando la cookie. Devuelve 204 No Content."""
+def logout(data: RefreshTokenRequest, response: Response, current_user: CurrentUser, svc: UsuarioServiceDep) -> None:
+    """Cierra sesión borrando la cookie y revocando el refresh token."""
+    # 1. Revocamos el token de la base de datos
+    svc.logout(data.refresh_token)
+    
+    # 2. Borramos la cookie del navegador
     response.delete_cookie(key="access_token", path="/")
     return None
 

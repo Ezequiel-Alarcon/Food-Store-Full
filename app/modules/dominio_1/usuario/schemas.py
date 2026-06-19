@@ -47,7 +47,7 @@ class UserPaginationResponse(SQLModel):
 # --- Respuesta del Login ---
 class Token(BaseModel):
     access_token: str
-    refresh_token: str  # <-- ¡Faltaba este campo!
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
 

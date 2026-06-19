@@ -1,7 +1,7 @@
 from typing import Optional, Sequence
 from sqlmodel import select, Session, func
 from sqlalchemy.orm import selectinload
-from app.modules.dominio_1.usuario.models import Usuario, Rol
+from app.modules.dominio_1.usuario.models import Usuario, Rol, RefreshToken
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
 
@@ -44,3 +44,11 @@ class RolRepository(BaseRepository[Rol]):
         return self.session.exec(statement).first()
         #return self.session.get(Rol, codigo)
         """Busca por el campo 'codigo', no por PK. Retorna None si está eliminado."""
+
+class RefreshTokenRepository(BaseRepository[RefreshToken]):
+    def __init__(self, session: Session):
+        super().__init__(session, RefreshToken)
+        
+    def get_by_hash(self, token_hash: str) -> Optional[RefreshToken]:
+        statement = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+        return self.session.exec(statement).first()

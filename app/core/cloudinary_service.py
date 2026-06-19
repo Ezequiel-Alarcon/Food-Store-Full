@@ -140,7 +140,7 @@ def subir_imagen(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"No se pudo subir la imagen a Cloudinary: {exc}",
         ) from exc
-    except Exception as exc:  # noqa: BLE001 - red/IO/conexión
+    except Exception as exc:
         logger.exception("Error inesperado al subir imagen a Cloudinary")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -186,7 +186,7 @@ def eliminar_imagen(public_id: Optional[str]) -> bool:
                 respuesta, public_id,
             )
         return True
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.exception(
             "No se pudo eliminar la imagen de Cloudinary (public_id=%s)", public_id,
         )

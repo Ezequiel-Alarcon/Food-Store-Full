@@ -6,7 +6,8 @@ Utilidades de seguridad: hashing de contraseñas y manejo de JWT.
 
 Separado del router para poder reutilizarse en seeds, tests, etc.
 """
-
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -30,23 +31,45 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ─── JWT ──────────────────────────────────────────────────────────────────────
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+# 1. FUNCIÓN BASE (Core)
+def create_jwt_token(data: dict, expires_delta: timedelta, token_type: str) -> str:
     """
-    Crea un JWT firmado con HS256.
-
-    Payload mínimo esperado:
-        { "sub": username, "role": role }
-
-    Se agrega automáticamente:
-        "type": "access"
-        "exp":  timestamp de expiración
+    Crea un JWT genérico firmado con HS256.
     """
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
-    to_encode.update({"type": "access", "exp": expire})
+    expire = datetime.now(timezone.utc) + expires_delta
+    to_encode.update({"type": token_type, "exp": expire})
+    
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+# 2. HANDLER: ACCESS TOKEN
+def create_access_token(data: dict) -> str:
+    """
+    Crea exclusivamente el Access Token.
+    """
+    expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return create_jwt_token(data, expires_delta, token_type="access")
+
+
+# 3. HANDLER: REFRESH TOKEN
+def create_refresh_token(data: dict) -> tuple[str, str, datetime]:
+    """
+    Crea el Refresh Token (JWT), lo encripta y calcula su expiración exacta.
+    Retorna: (refresh_token_plain, token_hash, expires_at)
+    """
+    expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    # A) Generamos el JWT llamando a la función base
+    refresh_token_plain = create_jwt_token(data, expires_delta, token_type="refresh")
+    
+    # B) Generamos el hash para la base de datos
+    token_hash = hashlib.sha256(refresh_token_plain.encode()).hexdigest()
+    
+    # C) Calculamos la expiración para guardarla en la tabla
+    expires_at = datetime.now(timezone.utc) + expires_delta
+    
+    return refresh_token_plain, token_hash, expires_at
 
 
 def decode_access_token(token: str) -> dict | None:
@@ -64,3 +87,4 @@ def decode_access_token(token: str) -> dict | None:
     except JWTError as e:
         logger.debug(f"JWT ERROR: {e}")
         return None
+

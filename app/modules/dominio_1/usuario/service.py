@@ -11,7 +11,7 @@ from sqlmodel import select
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork
 from app.modules.dominio_1.usuario.schemas import UserCreate, UserUpdateAdmin, UserUpdateClient, Token
 from app.modules.dominio_1.usuario.models import Rol,Usuario, RefreshToken
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token
 from app.core.enums import EstadoFiltro
 
 class UsuarioService:
@@ -170,12 +170,9 @@ class UsuarioService:
 
     def refresh_token(self, token_ingresado: str) -> Token:
         with self.uow as uow:
-            # 1. Hashear el token recibido para poder buscarlo en la base de datos
             token_hash = hashlib.sha256(token_ingresado.encode()).hexdigest()
             
-            # 2. Buscar el token en la BD
-            statement = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-            rt_db = uow._session.exec(statement).first()
+            rt_db = uow.refresh_tokens.get_by_hash(token_hash)
             
             if not rt_db:
                 raise HTTPException(
@@ -183,15 +180,15 @@ class UsuarioService:
                     detail="Refresh token inválido"
                 )
             
-            # 3. Validar que no esté expirado
+            # 3. Borrado limpio usando el Repositorio
             if rt_db.expires_at < datetime.now(timezone.utc):
-                uow._session.delete(rt_db) # Lo borramos para mantener limpia la BD
+                uow.refresh_tokens.delete(rt_db) 
+                
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED, 
                     detail="Refresh token expirado. Por favor inicie sesión nuevamente."
                 )
             
-            # 4. Traer al usuario asociado
             user = uow.usuarios.get_by_id(rt_db.usuario_id)
             if not user or user.deleted_at:
                 raise HTTPException(
@@ -199,25 +196,37 @@ class UsuarioService:
                     detail="El usuario asociado no existe o está inactivo"
                 )
             
-            # 5. --- ROTACIÓN DE TOKENS ---
-            # Generamos un nuevo Access Token
+            # --- ROTACIÓN DE TOKENS ---
             roles_codigos = [rol.codigo for rol in user.roles]
             nuevo_access = create_access_token(data={"sub": str(user.id), "roles": roles_codigos})
             
-            # Generamos un nuevo Refresh Token y pisamos el anterior
-            nuevo_refresh_plain = secrets.token_urlsafe(32)
-            nuevo_hash = hashlib.sha256(nuevo_refresh_plain.encode()).hexdigest()
+            nuevo_refresh_plain, nuevo_hash, nueva_expiracion = create_refresh_token(
+                data={"sub": str(user.id)}
+            )
             
             rt_db.token_hash = nuevo_hash
-            rt_db.expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-            uow._session.add(rt_db)
+            rt_db.expires_at = nueva_expiracion
+            
+            uow.refresh_tokens.update(rt_db)
             
             return Token(
                 access_token=nuevo_access,
                 refresh_token=nuevo_refresh_plain,
                 token_type="bearer",
                 expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-            )
+            ) 
+
+    def logout(self, token_ingresado: str) -> None:
+        """Revoca el refresh token de la base de datos."""
+        with self.uow as uow:
+            token_hash = hashlib.sha256(token_ingresado.encode()).hexdigest()
+            rt_db = uow.refresh_tokens.get_by_hash(token_hash)
+            
+            # Si existe en la BD, lo borramos para que no se pueda volver a usar
+            if rt_db:
+                uow.refresh_tokens.delete(rt_db)
+
+
 
 
     # ==========================================
