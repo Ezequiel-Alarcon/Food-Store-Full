@@ -119,7 +119,6 @@ def cambiar_estado_pedido(
     EVENTOS_WS = {
         "CONFIRMADO": "PEDIDO_CONFIRMADO",
         "EN_PREP": "PEDIDO_EN_PREPARACION",
-        "EN_CAMINO": "PEDIDO_EN_CAMINO",
         "CANCELADO": "PEDIDO_CANCELADO",
     }
     # Si el estado no está en el dicc, por defecto mandamos "ESTADO_ACTUALIZADO"
