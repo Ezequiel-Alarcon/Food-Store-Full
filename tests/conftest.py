@@ -15,10 +15,24 @@ from app.modules.dominio_1.usuario.models import Usuario
 # ---------------------------------------------------------------------------
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.types import ARRAY
+from sqlalchemy.sql.expression import FunctionElement
 
 @compiles(ARRAY, "sqlite")
 def compile_array_sqlite(type_, compiler, **kw):
     return "JSON"
+
+class date_trunc(FunctionElement):
+    name = 'date_trunc'
+    inherit_cache = True
+
+@compiles(date_trunc, 'sqlite')
+def compile_date_trunc_sqlite(element, compiler, **kw):
+    args = list(element.clauses)
+    granularity = args[0].value
+    col = compiler.process(args[1], **kw)
+    if granularity == 'month':
+        return f"strftime('%Y-%m-01', {col})"
+    return f"date({col})"
 
 # ---------------------------------------------------------------------------
 # CONFIGURACIÓN DE ENTORNO PARA TESTS
@@ -71,6 +85,13 @@ def client_fixture(session: Session):
 
     app.dependency_overrides[get_session] = get_session_override
 
+    # Resetear el rate limiter para evitar tests flaky (429 Too Many Requests)
+    try:
+        from app.core.rate_limit.rate_limit_middleware import RateLimitMiddleware
+        RateLimitMiddleware.reset_all_limiters()
+    except ImportError:
+        pass
+
     _create_test_admin(session)
 
     with TestClient(app) as client:
@@ -90,22 +111,52 @@ def _create_test_admin(session: Session) -> None:
         email="admin@foodstore.com",
         password_hash=hash_password("admin123"),
         nombre="Admin",
-        apellido="Test",
-        telefono="11111111",
-        es_activo=True
+        apellido="Test"
     )
     # Importante: Como en Food Store el RBAC lo manejamos con roles de muchos a muchos,
     # debemos asociar el rol ADMIN si hiciera falta. Pero si la app asume
     # roles por tabla relacional, lo creamos manualmente aquí.
     from app.modules.dominio_1.usuario.models import Rol
-    rol_admin = session.exec(select(Rol).where(Rol.codigo == "ADMIN")).first()
-    if not rol_admin:
-        rol_admin = Rol(codigo="ADMIN", nombre="Admin", descripcion="Administrador", modulos="*")
-        session.add(rol_admin)
+    roles_necesarios = [
+        {"codigo": "ADMIN",   "nombre": "Administrador",    "descripcion": "Acceso total sin restricciones"},
+        {"codigo": "STOCK",   "nombre": "Gestor de Stock",   "descripcion": "Actualiza stock y disponible"},
+        {"codigo": "PEDIDOS", "nombre": "Gestor de Pedidos", "descripcion": "Avanza estados CONFIRMADO->ENTREGADO"},
+        {"codigo": "CLIENT",  "nombre": "Cliente",           "descripcion": "Opera solo sus propios datos"},
+        {"codigo": "COCINA",  "nombre": "Cocina",            "descripcion": "Recibe pedidos para preparar"},
+    ]
     
-    admin.roles.append(rol_admin)
+    roles_db = {}
+    for rol_data in roles_necesarios:
+        rol = session.exec(select(Rol).where(Rol.codigo == rol_data["codigo"])).first()
+        if not rol:
+            rol = Rol(**rol_data)
+            session.add(rol)
+        roles_db[rol_data["codigo"]] = rol
+    
+    admin.roles.append(roles_db["ADMIN"])
     
     session.add(admin)
+    session.commit()
+
+    # Seed Estados
+    from app.modules.dominio_3.EstadoPedido.models import EstadoPedido
+    estados = [
+        {"codigo": "PENDIENTE", "descripcion": "Pendiente", "orden": 1, "es_terminal": False},
+        {"codigo": "CONFIRMADO", "descripcion": "Confirmado", "orden": 2, "es_terminal": False},
+        {"codigo": "EN_PREP", "descripcion": "En Preparacion", "orden": 3, "es_terminal": False},
+        {"codigo": "ENTREGADO", "descripcion": "Entregado", "orden": 5, "es_terminal": True},
+        {"codigo": "CANCELADO", "descripcion": "Cancelado", "orden": 99, "es_terminal": True},
+    ]
+    for st_data in estados:
+        if not session.exec(select(EstadoPedido).where(EstadoPedido.codigo == st_data["codigo"])).first():
+            session.add(EstadoPedido(**st_data))
+
+    # Seed FormaPago
+    from app.modules.dominio_3.FormaPago.models import FormaPago
+    fp_data = {"codigo": "EFECTIVO", "descripcion": "Efectivo", "habilitado": True}
+    if not session.exec(select(FormaPago).where(FormaPago.codigo == fp_data["codigo"])).first():
+        session.add(FormaPago(**fp_data))
+    
     session.commit()
 
 # ===========================================================================
@@ -118,7 +169,7 @@ def normal_user_data_fixture() -> dict:
         "password": "TestPass123!",
         "nombre": "Test",
         "apellido": "User",
-        "telefono": "123123"
+        "celular": "123123"
     }
 
 @pytest.fixture(name="normal_user")
@@ -171,7 +222,8 @@ def producto_db_fixture(session: Session):
     producto = Producto(
         nombre="Hamb. Test",
         precio_base="1500.00",
-        disponible=True
+        disponible=True,
+        stock_cantidad=100
     )
     session.add(producto)
     session.commit()
@@ -187,11 +239,11 @@ def pedido_db_fixture(session: Session, normal_user: dict, producto_db):
         usuario_id=normal_user["id"],
         estado_codigo="PENDIENTE",
         forma_pago_codigo="EFECTIVO",
-        direccion_envio_id=1,
+        direccion_id=1,
         subtotal="1500.00",
         total="1500.00",
         costo_envio="0.00",
-        descuento_aplicado="0.00"
+        descuento="0.00"
     )
     session.add(pedido)
     session.flush()
@@ -200,9 +252,9 @@ def pedido_db_fixture(session: Session, normal_user: dict, producto_db):
         pedido_id=pedido.id,
         producto_id=producto_db.id,
         cantidad=1,
-        precio_unitario_snapshot=producto_db.precio_base,
+        precio_snapshot=producto_db.precio_base,
         subtotal_snapshot=producto_db.precio_base,
-        nombre_producto_snapshot=producto_db.nombre
+        nombre_snapshot=producto_db.nombre
     )
     session.add(detalle)
     session.commit()
