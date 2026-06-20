@@ -110,8 +110,8 @@ def update_imagenes_producto(
     data: ProductoUpdateImagenes,
     svc: ProductoService = Depends(get_producto_service)
 ):
-    """Actualiza la lista imagenes_url[] del producto."""
-    return svc.actualizar_imagenes(producto_id, data.imagenes_url)
+    """Actualiza la lista imagenes_url[] y imagenes_public_id[] del producto."""
+    return svc.actualizar_imagenes(producto_id, data.imagenes_url, data.imagenes_public_id)
 
 
 @router.post("/{producto_id}/ingredientes", status_code=status.HTTP_201_CREATED, summary="Asociar ingrediente a producto", dependencies=[Depends(require_role(["ADMIN"]))])
