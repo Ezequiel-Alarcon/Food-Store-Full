@@ -5,8 +5,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import List, Optional
-from sqlmodel import select
-        
 
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork
 from app.modules.dominio_1.usuario.schemas import UserCreate, UserUpdateAdmin, UserUpdateClient, Token
@@ -114,7 +112,7 @@ class UsuarioService:
 
             # --- GENERACIÓN DE TOKENS ---
             
-           # 1. Access Token
+            # 1. Access Token
             roles_codigos = [rol.codigo for rol in user.roles]
             access_token = create_access_token(
                 data={"sub": str(user.id), "roles": roles_codigos}
