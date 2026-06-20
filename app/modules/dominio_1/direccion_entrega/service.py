@@ -30,6 +30,10 @@ class DireccionService(base_service[DireccionEntrega, DireccionCreate, Direccion
             )
         return direccion
 
+    def obtener_direccion_propia(self, direccion_id: int, usuario_id: int) -> DireccionEntrega:
+        with self.uow:
+            return self._get_direccion_segura_or_404(direccion_id, usuario_id)
+
     # ================= OVERRIDES CON LÓGICA DE NEGOCIO =================
 
     def crear_direccion_propia(self, usuario_id: int, item_in: DireccionCreate) -> DireccionEntrega:
