@@ -34,7 +34,6 @@ def seed():
             {"codigo": "STOCK",   "nombre": "Gestor de Stock",   "descripcion": "Actualiza stock y disponible"},
             {"codigo": "PEDIDOS", "nombre": "Gestor de Pedidos", "descripcion": "Avanza estados CONFIRMADO->ENTREGADO"},
             {"codigo": "CLIENT",  "nombre": "Cliente",           "descripcion": "Opera solo sus propios datos"},
-            {"codigo": "COCINA",  "nombre": "Cocina",            "descripcion": "Recibe pedidos para preparar"},
         ]
         roles_db = {}
         for rol_data in roles_necesarios:
@@ -82,23 +81,6 @@ def seed():
         else:
             print("  ✅ Cliente de prueba ya existe, se omite.")
 
-        email_cocina = "cocina@foodstore.com"
-        cocina_prueba = session.exec(select(Usuario).where(Usuario.email == email_cocina)).first()
-        if not cocina_prueba:
-            print("  Creando usuario COCINA de prueba...")
-            nuevo_cocina = Usuario(
-                nombre="Jefe",
-                apellido="Cocina",
-                email=email_cocina,
-                celular="2610000001",
-                password_hash=hash_password("cocina123"),
-            )
-            nuevo_cocina.roles.append(roles_db["COCINA"])
-            session.add(nuevo_cocina)
-            session.commit()
-            print("  ✅ Cocina creado (cocina@foodstore.com / cocina123)")
-        else:
-            print("  ✅ Cocina de prueba ya existe, se omite.")
 
         email_pedidos = "pedidos@foodstore.com"
         pedidos_prueba = session.exec(select(Usuario).where(Usuario.email == email_pedidos)).first()
@@ -144,7 +126,6 @@ def seed():
             {"codigo": "PENDIENTE",  "descripcion": "Pedido ingresado y pendiente de confirmación",     "orden": 1,  "es_terminal": False},
             {"codigo": "CONFIRMADO", "descripcion": "Pedido confirmado por el comercio",                "orden": 2,  "es_terminal": False},
             {"codigo": "EN_PREP",    "descripcion": "Pedido en preparación",                            "orden": 3,  "es_terminal": False},
-            {"codigo": "EN_CAMINO",  "descripcion": "Pedido en camino al cliente",                      "orden": 4,  "es_terminal": False},
             {"codigo": "ENTREGADO",  "descripcion": "Pedido entregado exitosamente",                    "orden": 5,  "es_terminal": True},
             {"codigo": "CANCELADO",  "descripcion": "Pedido cancelado",                                 "orden": 99, "es_terminal": True},
         ]
@@ -290,11 +271,10 @@ def seed():
 
     print("--- SEED FINALIZADO ✅ ---")
     print("   • 4 roles + usuarios de prueba")
-    print("   • 6 estados de pedido + 3 formas de pago")
+    print("   • 5 estados de pedido + 3 formas de pago")
     print("   • 6 categorías + 12 ingredientes + 7 unidades de medida + 6 productos")
     print("\n--- CUENTAS DE PRUEBA ---")
     print("   👤 Admin:   admin@foodstore.com   / admin123")
-    print("   👨‍🍳 Cocina:  cocina@foodstore.com  / cocina123")
     print("   📦 Pedidos: pedidos@foodstore.com / pedidos123")
     print("   📊 Stock:   stock@foodstore.com   / stock123")
     print("   🍔 Cliente: cliente@foodstore.com / cliente123")

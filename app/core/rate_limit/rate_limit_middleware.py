@@ -53,14 +53,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     las internals de Starlette.
     """
 
-    # Registry de instances activas (para tests).
+    # AGREGADO PARA TESTS: Registry de instances activas.
+    # Se usa en tests/conftest.py para limpiar el estado entre tests
+    # y evitar que se bloqueen entre sí.
     _instances: list["RateLimitMiddleware"] = []
 
     # Paths que matchean el auth_limiter (más estricto).
     AUTH_PATHS: tuple[str, ...] = (
-        "/usuarios/token",
-        "/usuarios/register",
-        "/usuarios/logout",
+        "/api/v1/auth/login",
+        "/api/v1/auth/register",
+        "/api/v1/auth/logout",
     )
 
     # Paths EXCLUIDOS del rate limiting (health checks, docs, etc.).
@@ -93,10 +95,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     @classmethod
     def reset_all_limiters(cls) -> None:
         """
-        Resetea los buckets de TODAS las instances activas.
-
-        Útil en `conftest.py` antes de cada test para evitar que el
-        rate limit de un test contamine al siguiente.
+        AGREGADO PARA TESTS: Limpia los buckets de todas las instancias activas.
+        Se usa en `conftest.py` en un autouse fixture antes de cada test para 
+        evitar que el rate limit de un test contamine al siguiente.
         """
         for instance in cls._instances:
             instance.default_limiter.reset_all()

@@ -210,6 +210,11 @@ class PaymentService:
                             usuario_id=user_id_to_log,  # Use the order's user to avoid FK error
                             rol="ADMIN"
                         )
+                        
+                        # TODO: Rúbrica MP (Webhook que procesa topic=payment, avanza pedido y notifica WS).
+                        # Aquí también debería invocarse el broadcast_pedido() o send_to_room() de WSManager
+                        # para informar al frontend en tiempo real del pago exitoso.
+                        
                         return {"status": "processed", "pago_id": pago.id, "pedido_actualizado": resultado_pedido}
                     except Exception as e:
                         logger.warning(

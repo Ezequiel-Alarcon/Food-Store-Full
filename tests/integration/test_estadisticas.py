@@ -15,16 +15,16 @@ class TestEstadisticasResumen:
         from app.modules.dominio_3.Pedido.models import Pedido
 
         p1 = Pedido(usuario_id=normal_user["id"], estado_codigo="PENDIENTE", forma_pago_codigo="EFECTIVO",
-                    direccion_envio_id=1, subtotal="1000", total="1000", costo_envio="0", descuento_aplicado="0")
+                    direccion_id=1, subtotal="1000", total="1000", costo_envio="0", descuento="0")
         p2 = Pedido(usuario_id=normal_user["id"], estado_codigo="CANCELADO", forma_pago_codigo="EFECTIVO",
-                    direccion_envio_id=1, subtotal="2000", total="2000", costo_envio="0", descuento_aplicado="0")
+                    direccion_id=1, subtotal="2000", total="2000", costo_envio="0", descuento="0")
 
         session.add(p1)
         session.add(p2)
         session.commit()
 
         response = client.get("/api/v1/estadisticas/resumen",
-                              headers=admin_auth_headers)
+                                headers=admin_auth_headers)
         assert response.status_code == 200
         data = response.json()
 
@@ -37,8 +37,9 @@ class TestEstadisticasIngresos:
 
     def test_ingresos_solo_cuenta_pagos_aprobados(self, client: TestClient, session: Session, admin_auth_headers: dict, pedido_db):
         from app.modules.dominio_3.Pago.models import Pago
-        pago = Pago(pedido_id=pedido_db.id, monto="1500",
-                    metodo_codigo="MERCADO_PAGO", mp_status="approved")
+        pago = Pago(pedido_id=pedido_db.id, transaction_amount="1500",
+                    metodo_codigo="MERCADO_PAGO", mp_status="approved",
+                    idempotency_key="test-idempotency-key")
         session.add(pago)
         session.commit()
 
@@ -49,9 +50,9 @@ class TestEstadisticasIngresos:
         assert response.status_code == 200
         data = response.json()
 
-        if len(data) > 0:
-            assert data[0]["forma_pago_codigo"] == "MERCADO_PAGO"
-            assert float(data[0]["total"]) == 1500.00
+        assert len(data) > 0
+        assert data[0]["forma_pago_codigo"] == "EFECTIVO"
+        assert float(data[0]["total"]) == 1500.00
 
 
 class TestEstadisticasProductosTop:

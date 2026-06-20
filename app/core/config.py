@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    ENVIRONMENT: Literal["development", "production", "test"] = "development"
     DATABASE_URL: Optional[str] = None
 
     # ── Postgres individual fields (alternative to DATABASE_URL) ──────────────

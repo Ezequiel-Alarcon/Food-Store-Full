@@ -33,6 +33,8 @@ class ProductoCategoria(SQLModel, table=True):
         nullable=False
     )
 
+    categoria: "Categoria" = Relationship()
+
 class ProductoIngrediente(SQLModel, table=True):
     __tablename__ = "producto_ingrediente"
     
@@ -57,6 +59,8 @@ class ProductoIngrediente(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+    
+    ingrediente: "Ingrediente" = Relationship()
 
 class Producto(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "productos"
@@ -111,5 +115,8 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
         back_populates="productos",
         link_model=ProductoIngrediente
     )
-    
+
     unidad_venta: Optional["UnidadMedida"] = Relationship()
+    links_categorias: list["ProductoCategoria"] = Relationship()
+    links_ingredientes: list["ProductoIngrediente"] = Relationship()
+

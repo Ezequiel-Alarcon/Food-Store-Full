@@ -59,3 +59,7 @@ def upload_imagen(
         imagen_url=resultado.imagen_url,
         imagen_public_id=resultado.imagen_public_id,
     )
+
+# TODO: Rúbrica Cloudinary. Falta implementar el endpoint DELETE /api/v1/uploads/imagen/{public_id}
+# (o similar) para eliminar físicamente la imagen de Cloudinary al borrar la entidad en la base de datos.
+# La función 'eliminar_imagen' ya existe en app.core.cloudinary_service.

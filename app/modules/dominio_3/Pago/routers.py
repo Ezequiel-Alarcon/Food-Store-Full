@@ -61,7 +61,6 @@ async def webhook(
             EVENTOS_WS = {
                 "CONFIRMADO": "PEDIDO_CONFIRMADO",
                 "EN_PREP": "PEDIDO_EN_PREPARACION",
-                "EN_CAMINO": "PEDIDO_EN_CAMINO",
                 "CANCELADO": "PEDIDO_CANCELADO",
             }
             evento = EVENTOS_WS.get(pedido.estado_codigo, "ESTADO_ACTUALIZADO")

@@ -17,11 +17,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from sqlmodel import SQLModel
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+
+from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    SQLModel.metadata.create_all(engine)
+    if settings.ENVIRONMENT != "test":
+        SQLModel.metadata.create_all(engine)
     yield
 
 setup_logging()
@@ -82,6 +86,9 @@ def create_app() -> FastAPI:
     app.include_router(estadisticas_router)
     app.include_router(pago_router)
 
+
+    #======== MANEJADORES DE ERRORES ===========
+    app.add_exception_handler(StarletteHTTPException, custom_http_exception_handler)
     app.add_exception_handler(HTTPException, custom_http_exception_handler)
     app.add_exception_handler(RequestValidationError,
                               validation_exception_handler)

@@ -113,3 +113,4 @@ class ProductoReadFull(ProductoRead):
 
 class ProductoUpdateImagenes(SQLModel):
     imagenes_url: List[str]
+    imagenes_public_id: List[str]

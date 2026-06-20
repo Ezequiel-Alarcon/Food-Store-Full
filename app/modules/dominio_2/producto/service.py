@@ -34,54 +34,40 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             raise HTTPException(
                 status_code=400, detail=f"El nombre '{name}' ya está en uso por otro producto")
 
+    def _limpiar_imagenes_cloudinary(self, public_ids_viejos: list[str], public_ids_nuevos: list[str]) -> None:
+        set_viejo = {pid for pid in public_ids_viejos if pid}
+        set_nuevo = {pid for pid in public_ids_nuevos if pid}
+        imagenes_a_borrar = set_viejo - set_nuevo
+        for pid in imagenes_a_borrar:
+            eliminar_imagen(pid)
 
     def _to_read_full(self, producto: Producto) -> ProductoReadFull:
         from typing import cast
-        
-        # ─────────── 1. Mapeo de Categorías ──────────────────────────────────
-        categoria_links = self.uow.producto_categorias.list_by_producto(
-            cast(int, producto.id)
-        )
-        categoria_principal_por_id = {
-            link.categoria_id: link.es_principal for link in categoria_links
-        }
 
+        # ─────────── 1. Categorías — iterás los links precargados ──────────────────────────────────
         categorias = [
             CategoriaBasicRead(
-                id=cast(int, categoria.id),
-                nombre=categoria.nombre,
-                es_principal=categoria_principal_por_id.get(
-                    cast(int, categoria.id), False
-                ),
+                id=cast(int, link.categoria.id),
+                nombre=link.categoria.nombre,
+                es_principal=link.es_principal,
             )
-            for categoria in producto.categorias if getattr(categoria, "deleted_at", None) is None
+            for link in producto.links_categorias
+            if getattr(link.categoria, "deleted_at", None) is None
         ]
 
-        # ─────────── 2. Mapeo de Ingredientes ──────────────────────────────────
-        ingrediente_links = self.uow.producto_ingredientes.list_by_producto(
-            cast(int, producto.id)
-        )
-        
-        datos_link_por_id = {
-            link.ingrediente_id: link for link in ingrediente_links
-        }
-
-        ingredientes = []
-        for ingrediente in producto.ingredientes:
-            if getattr(ingrediente, "deleted_at", None) is None:
-                link = datos_link_por_id.get(cast(int, ingrediente.id))
-                
-                if link:
-                    ingredientes.append(
-                        ProductoIngredienteRead(
-                            id=cast(int, ingrediente.id),
-                            nombre=ingrediente.nombre,
-                            es_alergeno=ingrediente.es_alergeno,
-                            es_removible=link.es_removible,
-                            cantidad=link.cantidad,
-                            unidad_medida_id=link.unidad_medida_id
-                        )
-                    )
+        # ─────────── 2. Ingredientes — iterás los links precargados ──────────────────────────────────
+        ingredientes = [
+            ProductoIngredienteRead(
+                id=cast(int, link.ingrediente.id),
+                nombre=link.ingrediente.nombre,
+                es_alergeno=link.ingrediente.es_alergeno,
+                es_removible=link.es_removible,
+                cantidad=link.cantidad,
+                unidad_medida_id=link.unidad_medida_id,
+            )
+            for link in producto.links_ingredientes
+            if getattr(link.ingrediente, "deleted_at", None) is None
+        ]
 
         # ─────────── 3. Armado de la respuesta final ──────────────────────────────────
         """
@@ -100,7 +86,6 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             categorias=categorias,
             ingredientes=ingredientes,
         )
-
 
     # ── Overrides y Métodos públicos ─────────────────────────────────────────
 
@@ -151,10 +136,10 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
                 state=estado, disponible=disponible,
                 categoria_ids=categoria_ids, ingrediente_ids=ingrediente_ids, q=q
             )
-            
+
             # 3. Cálculo matemático de páginas
             pages = (total + size - 1) // size if total > 0 else 0
-            
+
             # 4. Formato exacto de PaginatedResponse
             return {
                 "items": [self._to_read_full(p) for p in productos],
@@ -164,12 +149,10 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
                 "pages": pages
             }
 
-
     def get_by_id_full(self, producto_id: int, allow_deleted: bool = False) -> ProductoReadFull:
         with self.uow:
             producto = self._get_or_404(producto_id, allow_deleted)
             return self._to_read_full(producto)
-
 
     def create(self, data: ProductoCreate) -> ProductoReadFull:
         with self.uow:
@@ -210,7 +193,6 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
 
             return self._to_read_full(nuevo_producto)
 
-
     def update(self, producto_id: int, data: ProductoUpdate) -> ProductoReadFull:
         with self.uow:
             producto = self._get_or_404(producto_id)
@@ -236,7 +218,7 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             if hasattr(producto, "updated_at"):
                 from datetime import datetime, timezone
                 producto.updated_at = datetime.now(timezone.utc)
-                
+
             self.repo.update(producto)
 
             if data.categoria_ids is not None:
@@ -282,15 +264,32 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
         # public_ids cambió (se removieron imágenes, o se reemplazaron
         # todas), los public_ids viejos que ya no estén en el set nuevo
         # quedan huérfanos y se eliminan.
+        # Reemplazá todo ese bloque viejo por estas 2 líneas:
         if "imagenes_public_id" in patch:
-            set_viejo = {pid for pid in public_ids_viejos if pid}
-            set_nuevo = {pid for pid in public_ids_nuevos if pid}
-            imagenes_a_borrar = set_viejo - set_nuevo
-            for pid in imagenes_a_borrar:
-                eliminar_imagen(pid)
+            self._limpiar_imagenes_cloudinary(public_ids_viejos, public_ids_nuevos)
 
         return read
 
+
+    def actualizar_imagenes(self, producto_id: int, imagenes_url: list[str], imagenes_public_id: list[str]) -> ProductoReadFull:
+        with self.uow:
+            producto = self._get_or_404(producto_id)
+            public_ids_viejos = list(producto.imagenes_public_id or [])
+
+            producto.imagenes_url = imagenes_url
+            producto.imagenes_public_id = imagenes_public_id
+
+            if hasattr(producto, "updated_at"):
+                from datetime import datetime, timezone
+                producto.updated_at = datetime.now(timezone.utc)
+
+            self.repo.update(producto)
+            read = self._to_read_full(producto)
+
+        # Limpiamos Cloudinary fuera del Unit of Work
+        self._limpiar_imagenes_cloudinary(
+            public_ids_viejos, imagenes_public_id)
+        return read
 
     def delete(self, producto_id: int):
         with self.uow:
@@ -301,51 +300,54 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
         # producto en Cloudinary.
         eliminar_multiples_imagenes(public_ids_imagenes)
         return {"mensaje": f"Producto {producto_id} eliminado/a correctamente"}
-        
-        
+
     # NOTA DE MERGE: Este método fue conservado tras integrar la rama de "Tuki-Lucas"
     # porque permite asociar ingredientes con su cantidad EXACTA y unidad de medida.
-    def asociar_ingrediente(self, producto_id: int, data: ProductoIngredienteCreate) -> ProductoIngredienteRead:
-            """Asocia (o actualiza) un ingrediente en un producto con su cantidad exacta."""
-            with self.uow as uow:
-                producto = self._get_or_404(producto_id)
-                
-                ingrediente = uow.ingredientes.get_by_id(data.ingrediente_id)
-                if not ingrediente or getattr(ingrediente, "deleted_at", None) is not None:
-                    raise HTTPException(status_code=404, detail="Ingrediente no encontrado")
-                    
-                unidad = uow.unidad_medida.get_by_id(data.unidad_medida_id)
-                if not unidad or getattr(unidad, "deleted_at", None) is not None:
-                    raise HTTPException(status_code=404, detail="Unidad de medida no encontrada")
 
-                # Buscamos si ya existe la relación (para no duplicar la PK compuesta)
-                relacion = uow.producto_ingredientes.get(producto.id, data.ingrediente_id)
-                
-                if relacion:
-                    # Si la relacion ya existia, la actualizamos
-                    relacion.cantidad = data.cantidad
-                    relacion.unidad_medida_id = data.unidad_medida_id
-                    relacion.es_removible = data.es_removible
-                    uow.producto_ingredientes.update(relacion)
-                else:
-                    # Si no existe, creamos la relacion
-                    nueva_relacion = ProductoIngrediente(
-                        producto_id=producto.id,
-                        ingrediente_id=data.ingrediente_id,
-                        cantidad=data.cantidad,
-                        unidad_medida_id=data.unidad_medida_id,
-                        es_removible=data.es_removible
-                    )
-                    uow.producto_ingredientes.add(nueva_relacion)
-                
-                return ProductoIngredienteRead(
-                    id=cast(int, ingrediente.id),
-                    nombre=ingrediente.nombre,
-                    es_alergeno=ingrediente.es_alergeno,
-                    es_removible=data.es_removible,
+    def asociar_ingrediente(self, producto_id: int, data: ProductoIngredienteCreate) -> ProductoIngredienteRead:
+        """Asocia (o actualiza) un ingrediente en un producto con su cantidad exacta."""
+        with self.uow as uow:
+            producto = self._get_or_404(producto_id)
+
+            ingrediente = uow.ingredientes.get_by_id(data.ingrediente_id)
+            if not ingrediente or getattr(ingrediente, "deleted_at", None) is not None:
+                raise HTTPException(
+                    status_code=404, detail="Ingrediente no encontrado")
+
+            unidad = uow.unidad_medida.get_by_id(data.unidad_medida_id)
+            if not unidad or getattr(unidad, "deleted_at", None) is not None:
+                raise HTTPException(
+                    status_code=404, detail="Unidad de medida no encontrada")
+
+            # Buscamos si ya existe la relación (para no duplicar la PK compuesta)
+            relacion = uow.producto_ingredientes.get(
+                producto.id, data.ingrediente_id)
+
+            if relacion:
+                # Si la relacion ya existia, la actualizamos
+                relacion.cantidad = data.cantidad
+                relacion.unidad_medida_id = data.unidad_medida_id
+                relacion.es_removible = data.es_removible
+                uow.producto_ingredientes.update(relacion)
+            else:
+                # Si no existe, creamos la relacion
+                nueva_relacion = ProductoIngrediente(
+                    producto_id=producto.id,
+                    ingrediente_id=data.ingrediente_id,
                     cantidad=data.cantidad,
-                    unidad_medida_id=data.unidad_medida_id
+                    unidad_medida_id=data.unidad_medida_id,
+                    es_removible=data.es_removible
                 )
+                uow.producto_ingredientes.add(nueva_relacion)
+
+            return ProductoIngredienteRead(
+                id=cast(int, ingrediente.id),
+                nombre=ingrediente.nombre,
+                es_alergeno=ingrediente.es_alergeno,
+                es_removible=data.es_removible,
+                cantidad=data.cantidad,
+                unidad_medida_id=data.unidad_medida_id
+            )
 
     def toggle_disponibilidad(self, producto_id: int) -> ProductoReadFull:
         with self.uow:
@@ -353,4 +355,3 @@ class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, Pro
             producto.disponible = not producto.disponible
             self.repo.update(producto)
             return self._to_read_full(producto)
-

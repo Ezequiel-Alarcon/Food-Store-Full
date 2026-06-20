@@ -27,7 +27,6 @@ class PedidoService:
         "pendiente": "PENDIENTE", "pending": "PENDIENTE",
         "confirmado": "CONFIRMADO", "confirmed": "CONFIRMADO",
         "en_prep": "EN_PREP", "en_preparacion": "EN_PREP", "preparando": "EN_PREP",
-        "en_camino": "EN_CAMINO", "enviado": "EN_CAMINO", "shipped": "EN_CAMINO",
         "entregado": "ENTREGADO", "delivered": "ENTREGADO",
         "cancelado": "CANCELADO", "cancelled": "CANCELADO",
     }
@@ -39,22 +38,20 @@ class PedidoService:
         "ADMIN": {
             "PENDIENTE":  {"CONFIRMADO", "CANCELADO"},
             "CONFIRMADO": {"EN_PREP", "CANCELADO"},
-            "EN_PREP":    {"EN_CAMINO", "CANCELADO"},
-            "EN_CAMINO":  {"ENTREGADO"},
+            "EN_PREP":    {"ENTREGADO", "CANCELADO"},
             "ENTREGADO":  set(),
             "CANCELADO":  set(),
         },
         "PEDIDOS": {
             "PENDIENTE":  {"CONFIRMADO", "CANCELADO"},
             "CONFIRMADO": {"EN_PREP", "CANCELADO"},
-            "EN_PREP":    {"EN_CAMINO", "CANCELADO"},
-            "EN_CAMINO":  {"ENTREGADO"},
+            "EN_PREP":    {"ENTREGADO", "CANCELADO"},
             "ENTREGADO":  set(),
             "CANCELADO":  set(),
         },
         "COCINA": {
             "CONFIRMADO": {"EN_PREP"},
-            "EN_PREP":    {"EN_CAMINO"},
+            "EN_PREP":    {"ENTREGADO"},
         },
         "CLIENT": {
             "PENDIENTE":  {"CANCELADO"},
@@ -232,6 +229,11 @@ class PedidoService:
                 usuario_id=usuario_id,
                 motivo=data.motivo,
             )
+            
+            # TODO: Según la rúbrica (RN-06), acá se debe invocar a WSManager.broadcast_pedido() o send_to_room()
+            # DESPUÉS del bloque UoW (fuera del context manager) para notificar el cambio de estado a los clientes/admin conectados.
+            # Se debe importar get_connection_manager de app.core.websocket.
+            
             return self._armar_pedido_read_full(uow, pedido)
 
     def _obtener_pedido_o_404(self, uow, pedido_id: int) -> Pedido:
