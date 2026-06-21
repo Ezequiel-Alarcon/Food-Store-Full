@@ -1,23 +1,27 @@
-from app.utils.errores import custom_http_exception_handler, validation_exception_handler
-from app.modules.dominio_1.direccion_entrega.routers import router as direccion_router
-from app.modules.dominio_1.usuario.routers import auth_router, usuarios_router, admin_router
-from app.modules.dominio_3.Pago.routers import router as pago_router
-from app.modules.dominio_3.Estadisticas.router import router as estadisticas_router
-from app.modules.dominio_3.Pedido.routers import router as pedido_router
-from app.modules.dominio_2.producto.router import router as producto_router
-from app.modules.dominio_2.ingrediente.router import router as ingrediente_router
-from app.modules.dominio_2.categoria.router import router as categoria_router
-from app.modules.dominio_2.UnidadMedida.routers import router as unidad_medida_router
-from app.core.logger import setup_logging
-from app.core.database import engine
-from app.core.rate_limit.rate_limit_middleware import RateLimitMiddleware
-from app.core.cloudinary.router import router as imagen_router
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from sqlmodel import SQLModel
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.utils.errores import custom_http_exception_handler, validation_exception_handler
+from app.core.logger import setup_logging
+from app.core.database import engine
+from app.core.rate_limit.rate_limit_middleware import RateLimitMiddleware
+from app.core.cloudinary.router import router as imagen_router
+
+from app.modules.dominio_1.direccion_entrega.routers import router as direccion_router
+from app.modules.dominio_1.usuario.routers import auth_router, usuarios_router, admin_router
+
+from app.modules.dominio_2.producto.router import router as producto_router
+from app.modules.dominio_2.ingrediente.router import router as ingrediente_router
+from app.modules.dominio_2.categoria.router import router as categoria_router
+from app.modules.dominio_2.UnidadMedida.routers import router as unidad_medida_router
+
+from app.modules.dominio_3.Pago.routers import router as pago_router
+from app.modules.dominio_3.Estadisticas.router import router as estadisticas_router
+from app.modules.dominio_3.Pedido.routers import router as pedido_router
 
 
 from app.core.config import settings
@@ -42,13 +46,7 @@ def create_app() -> FastAPI:
     # load_dotenv()
     # frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-    origenes_permitidos = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-    ]
+    origenes_permitidos = [origen.strip() for origen in settings.CORS_ORIGINS.split(",") if origen.strip()]
 
     app.add_middleware(RateLimitMiddleware)
 
