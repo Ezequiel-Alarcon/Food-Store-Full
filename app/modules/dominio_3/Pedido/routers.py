@@ -27,20 +27,14 @@ def get_pedido_service(session: Session = Depends(get_session)) -> PedidoService
 # CLIENT — operaciones sobre sus propios pedidos
 # ══════════════════════════════════════════════════════
 
+#TODO sacando websocket de router para no romper la separación de responsabilidades
 @router.post("/", response_model=PedidoReadFull, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_role(["CLIENT"]))])
 def crear_pedido(
     data: PedidoCreate,
     current_user: CurrentUser,
-    background_tasks: BackgroundTasks,
     service: PedidoService = Depends(get_pedido_service),
 ) -> PedidoReadFull:
     resultado = service.crear_pedido(data, current_user.id)
-    
-    # FASE 6: EL TIMBRE EN LA COCINA (WebSockets)
-    # Despachamos el evento a la room de KDS en segundo plano.
-    # Asi la pantalla del KDS recibe el pedido al instante sin frenar la respuesta HTTP.
-    background_tasks.add_task(
-        manager.send_to_room, "role:KDS", "NUEVO_PEDIDO", resultado.model_dump(mode="json"))
     return resultado
 
 
@@ -103,31 +97,20 @@ def obtener_historial_pedido(
 
 
 @router.patch("/{pedido_id}/estado", response_model=PedidoReadFull, dependencies=[Depends(require_role(["ADMIN", "PEDIDOS", "COCINA"]))])
-def cambiar_estado_pedido(
+async def cambiar_estado_pedido(
     pedido_id: int,
     data: PedidoCambioEstado,
     current_user: CurrentUser,
-    background_tasks: BackgroundTasks,
+    ws_manager: ConnectionManager = Depends(get_connection_manager),
     service: PedidoService = Depends(get_pedido_service),
 ) -> PedidoReadFull:
-    resultado = service.cambiar_estado_pedido(
-        pedido_id, data, current_user.id, current_user.roles[0].codigo)
-
-    # FASE 6: EL AVISO DE ACTUALIZACIÓN (WebSockets)
-    # Mapeamos los estados exactos de la base de datos a los nombres
-    # de eventos que el frontend en JavaScript espera recibir.
-    EVENTOS_WS = {
-        "CONFIRMADO": "PEDIDO_CONFIRMADO",
-        "EN_PREP": "PEDIDO_EN_PREPARACION",
-        "CANCELADO": "PEDIDO_CANCELADO",
-    }
-    # Si el estado no está en el dicc, por defecto mandamos "ESTADO_ACTUALIZADO"
-    evento = EVENTOS_WS.get(resultado.estado_codigo, "ESTADO_ACTUALIZADO")
-
-    background_tasks.add_task(
-        manager.send_to_room, "role:KDS", evento, resultado.model_dump(mode="json"))
-    background_tasks.add_task(
-        manager.send_to_room, f"pedido:{pedido_id}", evento, resultado.model_dump(mode="json"))
+    resultado = await service.cambiar_estado_pedido(
+        pedido_id, 
+        data, 
+        current_user.id, 
+        current_user.roles[0].codigo,
+        ws_manager
+    )
 
     return resultado
 
