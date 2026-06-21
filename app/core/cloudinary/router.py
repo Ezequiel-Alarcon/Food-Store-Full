@@ -13,37 +13,27 @@ romper contratos existentes y mantiene el patrón JSON del proyecto.
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
-from sqlmodel import Field, SQLModel
 
-from app.core.cloudinary_service import ImagenSubida, subir_imagen
+from app.core.cloudinary.schemas import CloudinaryResponse
+from app.core.cloudinary.service import ImagenSubida, subir_imagen, eliminar_imagen
 from app.core.deps import require_role
 
 
 TipoEntidadImagen = Literal["categoria", "ingrediente", "producto"]
 
 
-class ImagenUploadResponse(SQLModel):
-    """Respuesta normalizada que el cliente persiste junto a la entidad."""
-    imagen_url: str = Field(..., description="URL pública (https) de la imagen")
-    imagen_public_id: str = Field(
-        ...,
-        description="ID interno en Cloudinary, requerido para reemplazo/borrado",
-    )
-
-
-router = APIRouter(prefix="/imagenes", tags=["Imágenes"])
+router = APIRouter(prefix="/uploads", tags=["Uploads"])
 
 
 @router.post(
-    "/upload",
-    response_model=ImagenUploadResponse,
+    "/imagen",
+    response_model=CloudinaryResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Subir una imagen a Cloudinary",
+    summary="Sube una imagen a Cloudinary",
     description=(
         "Sube un archivo de imagen (jpg/png/webp/gif/avif, máx 5 MB) a "
         "la carpeta correspondiente al `tipo` de entidad y devuelve la "
-        "URL pública junto con el public_id para almacenarlo en la "
-        "entidad. Reservado a ADMIN."
+        "URL pública junto con el public_id. Reservado a ADMIN."
     ),
     dependencies=[Depends(require_role(["ADMIN"]))],
 )
@@ -53,13 +43,21 @@ def upload_imagen(
         TipoEntidadImagen,
         Form(description="Carpeta destino en Cloudinary según la entidad"),
     ] = "categoria",
-) -> ImagenUploadResponse:
+) -> CloudinaryResponse:
     resultado: ImagenSubida = subir_imagen(archivo, tipo=tipo)
-    return ImagenUploadResponse(
-        imagen_url=resultado.imagen_url,
-        imagen_public_id=resultado.imagen_public_id,
+    return CloudinaryResponse(
+        secure_url=resultado.imagen_url,
+        public_id=resultado.imagen_public_id,
     )
 
-# TODO: Rúbrica Cloudinary. Falta implementar el endpoint DELETE /api/v1/uploads/imagen/{public_id}
-# (o similar) para eliminar físicamente la imagen de Cloudinary al borrar la entidad en la base de datos.
-# La función 'eliminar_imagen' ya existe en app.core.cloudinary_service.
+
+@router.delete(
+    "/imagen/{public_id:path}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Elimina una imagen de Cloudinary",
+    description="Elimina una imagen de Cloudinary por su public_id. Reservado a ADMIN.",
+    dependencies=[Depends(require_role(["ADMIN"]))],
+)
+def delete_imagen(public_id: str):
+    eliminar_imagen(public_id)
+    return None
