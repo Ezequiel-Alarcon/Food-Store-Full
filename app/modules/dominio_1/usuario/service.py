@@ -179,7 +179,7 @@ class UsuarioService:
                 )
             
             # 3. Borrado limpio usando el Repositorio
-            if rt_db.expires_at < datetime.now(timezone.utc):
+            if rt_db.expires_at < datetime.utcnow():
                 uow.refresh_tokens.delete(rt_db) 
                 
                 raise HTTPException(
