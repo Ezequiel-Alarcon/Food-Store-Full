@@ -6,15 +6,15 @@ from app.core.cloudinary_service import eliminar_imagen
 from app.core.enums import EstadoFiltro
 # IMPORTANTE: Acá importás tu base_service desde donde lo tengas
 from app.core.service import base_service
-from app.modules.dominio_2.ingrediente.models import Ingrediente
-from app.modules.dominio_2.ingrediente.schemas import (
+from app.modules.ingredientes.models import Ingrediente
+from app.modules.ingredientes.schemas import (
     IngredienteCreate,
     ProductoBasicRead,
     IngredienteRead,
     IngredienteReadFull,
     IngredienteUpdate,
 )
-from app.modules.dominio_2.ingrediente.unit_of_work import IngredienteUnitOfWork
+from app.modules.ingredientes.unit_of_work import IngredienteUnitOfWork
 
 class IngredienteService(base_service[Ingrediente, IngredienteCreate, IngredienteUpdate, IngredienteUnitOfWork]):
     def __init__(self, session: Session) -> None:

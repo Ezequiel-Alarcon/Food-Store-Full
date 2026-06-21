@@ -218,7 +218,7 @@ def user_auth_headers_fixture(client: TestClient, normal_user: dict, normal_user
 # Fixtures para Pedidos y Productos para ahorrar código en tests
 @pytest.fixture(name="producto_db")
 def producto_db_fixture(session: Session):
-    from app.modules.dominio_2.producto.models import Producto
+    from app.modules.productos.models import Producto
     producto = Producto(
         nombre="Hamb. Test",
         precio_base="1500.00",

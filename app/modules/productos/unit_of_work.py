@@ -1,10 +1,10 @@
 from sqlmodel import Session
 from app.core.unit_of_work import UnitOfWork
-from app.modules.dominio_2.producto.repository import ProductoRepository
-from app.modules.dominio_2.categoria.repository import CategoriaRepository
-from app.modules.dominio_2.ingrediente.repository import IngredienteRepository
-from app.modules.dominio_2.producto.repository import ProductoCategoriaRepository, ProductoIngredienteRepository
-from app.modules.dominio_2.UnidadMedida.repository import UnidadMedidaRepository
+from app.modules.productos.repository import ProductoRepository
+from app.modules.categorias.repository import CategoriaRepository
+from app.modules.ingredientes.repository import IngredienteRepository
+from app.modules.productos.repository import ProductoCategoriaRepository, ProductoIngredienteRepository
+from app.modules.unidades_medida.repository import UnidadMedidaRepository
 
 class ProductoUnitOfWork(UnitOfWork):
     def __init__(self, session: Session) -> None:

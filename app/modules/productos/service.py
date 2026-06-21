@@ -5,8 +5,8 @@ from sqlmodel import Session
 from app.core.cloudinary_service import eliminar_imagen, eliminar_multiples_imagenes
 from app.core.enums import EstadoFiltro
 from app.core.service import base_service
-from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
-from app.modules.dominio_2.producto.schemas import (
+from app.modules.productos.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.productos.schemas import (
     CategoriaBasicRead,
     ProductoCreate,
     ProductoReadFull,
@@ -14,7 +14,7 @@ from app.modules.dominio_2.producto.schemas import (
     ProductoIngredienteCreate,
     ProductoIngredienteRead
 )
-from app.modules.dominio_2.producto.unit_of_work import ProductoUnitOfWork
+from app.modules.productos.unit_of_work import ProductoUnitOfWork
 
 
 class ProductoService(base_service[Producto, ProductoCreate, ProductoUpdate, ProductoUnitOfWork]):

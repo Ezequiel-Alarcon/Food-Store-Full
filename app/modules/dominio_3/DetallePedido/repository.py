@@ -2,7 +2,7 @@ from sqlmodel import Session, select, func
 from datetime import date
 from app.core.repository import BaseRepository
 from app.modules.dominio_3.DetallePedido.models import DetallePedido
-from app.modules.dominio_2.producto.models import Producto
+from app.modules.productos.models import Producto
 from app.modules.dominio_3.Pedido.models import Pedido
 from app.modules.dominio_3.Pago.models import Pago
 

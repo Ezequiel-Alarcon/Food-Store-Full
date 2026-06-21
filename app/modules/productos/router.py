@@ -6,14 +6,14 @@ from app.core.deps import require_role
 from app.core.database import get_session
 from app.core.enums import EstadoFiltro
 from app.core.schemas import PaginatedResponse
-from app.modules.dominio_2.producto.schemas import (
+from app.modules.productos.schemas import (
     ProductoCreate,
     ProductoReadFull,
     ProductoUpdate,
     ProductoUpdateImagenes, 
     ProductoIngredienteCreate
 )
-from app.modules.dominio_2.producto.service import ProductoService
+from app.modules.productos.service import ProductoService
 
 router = APIRouter(tags=["Productos"])
 

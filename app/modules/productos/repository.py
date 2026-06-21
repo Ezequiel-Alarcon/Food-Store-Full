@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload, joinedload
 
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
-from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.productos.models import Producto, ProductoCategoria, ProductoIngrediente
 
 # ══════════════════════════════════════════════════════
 # REPOSITORIO PRINCIPAL: PRODUCTO
@@ -125,7 +125,7 @@ class ProductoIngredienteRepository(BaseRepository[ProductoIngrediente]):
 
 
     def list_by_producto(self, producto_id: int) -> list[ProductoIngrediente]:
-        return list(self.session.exec(select(ProductoIngrediente).where(ProductoIngrediente.producto_id == producto_id).order_by(cast(Any, ProductoIngrediente.ingrediente_id))).all())
+        return list(self.session.exec(select(ProductoIngrediente).where(ProductoIngrediente.producto_id == producto_id).order_by(cast(Any, ProductoIngrediente.ingrediente_id)).all()))
 
 
     def list_by_ingrediente(self, ingrediente_id: int) -> list[ProductoIngrediente]:

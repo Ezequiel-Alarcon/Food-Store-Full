@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import selectinload
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
-from app.modules.dominio_2.ingrediente.models import Ingrediente
+from app.modules.ingredientes.models import Ingrediente
 
 class IngredienteRepository(BaseRepository[Ingrediente]):
     def __init__(self, session: Session) -> None:

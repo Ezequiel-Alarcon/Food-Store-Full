@@ -1,14 +1,14 @@
 from typing import TYPE_CHECKING, Optional, List, ClassVar
 from sqlmodel import SQLModel
 
-from app.modules.dominio_2.producto.models import ProductoCategoria
+from app.modules.productos.models import ProductoCategoria
 from app.core.minxins.auditable_mixin import UniqueAuditableMixin
 
 from sqlmodel import Field, Relationship
 
 # Evitar las importaciones circulares
 if TYPE_CHECKING:
-    from ..producto.models import Producto
+    from ..productos.models import Producto
 
 
 class Categoria(UniqueAuditableMixin, SQLModel, table=True):

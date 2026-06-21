@@ -2,8 +2,8 @@ from sqlmodel import Session
 from fastapi import Depends
 from app.core.database import get_session
 from app.core.unit_of_work import UnitOfWork
-from app.modules.dominio_2.producto.repository import ProductoRepository
-from app.modules.dominio_2.ingrediente.repository import IngredienteRepository
+from app.modules.productos.repository import ProductoRepository
+from app.modules.ingredientes.repository import IngredienteRepository
 from app.modules.dominio_1.usuario.repository import UsuarioRepository
 from app.modules.dominio_3.DetallePedido.repository import DetallePedidoRepository
 from app.modules.dominio_3.EstadoPedido.repository import EstadoPedidoRepository

@@ -5,13 +5,13 @@ from sqlmodel import Session
 from app.core.deps import require_role
 from app.core.database import get_session
 from app.core.schemas import PaginatedResponse
-from app.modules.dominio_2.ingrediente.schemas import (
+from app.modules.ingredientes.schemas import (
     IngredienteCreate,
     IngredienteRead,
     IngredienteReadFull,
     IngredienteUpdate
 )
-from app.modules.dominio_2.ingrediente.service import IngredienteService
+from app.modules.ingredientes.service import IngredienteService
 from app.core.enums import EstadoFiltro
 
 router = APIRouter()

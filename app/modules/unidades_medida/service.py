@@ -4,9 +4,9 @@ from sqlmodel import Session
 
 from app.core.enums import EstadoFiltro
 from app.core.service import base_service
-from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
-from app.modules.dominio_2.UnidadMedida.schemas import UnidadMedidaCreate, UnidadMedidaUpdate, UnidadMedidaRead
-from app.modules.dominio_2.UnidadMedida.unit_of_work import UnidadMedidaUnitOfWork
+from app.modules.unidades_medida.models import UnidadMedida
+from app.modules.unidades_medida.schemas import UnidadMedidaCreate, UnidadMedidaUpdate, UnidadMedidaRead
+from app.modules.unidades_medida.unit_of_work import UnidadMedidaUnitOfWork
 
 class UnidadMedidaService(base_service[UnidadMedida, UnidadMedidaCreate, UnidadMedidaUpdate, UnidadMedidaUnitOfWork]):
     def __init__(self, session: Session) -> None:

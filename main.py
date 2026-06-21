@@ -4,10 +4,10 @@ from app.modules.dominio_1.usuario.routers import auth_router, usuarios_router, 
 from app.modules.dominio_3.Pago.routers import router as pago_router
 from app.modules.dominio_3.Estadisticas.router import router as estadisticas_router
 from app.modules.dominio_3.Pedido.routers import router as pedido_router
-from app.modules.dominio_2.producto.router import router as producto_router
-from app.modules.dominio_2.ingrediente.router import router as ingrediente_router
-from app.modules.dominio_2.categoria.router import router as categoria_router
-from app.modules.dominio_2.UnidadMedida.routers import router as unidad_medida_router
+from app.modules.productos.router import router as producto_router
+from app.modules.ingredientes.router import router as ingrediente_router
+from app.modules.categorias.router import router as categoria_router
+from app.modules.unidades_medida.router import router as unidad_medida_router
 from app.core.logger import setup_logging
 from app.core.database import engine
 from app.core.rate_limit.rate_limit_middleware import RateLimitMiddleware

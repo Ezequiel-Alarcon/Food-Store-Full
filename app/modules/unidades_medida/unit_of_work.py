@@ -1,6 +1,6 @@
 from sqlmodel import Session
 from app.core.unit_of_work import UnitOfWork
-from app.modules.dominio_2.UnidadMedida.repository import UnidadMedidaRepository
+from app.modules.unidades_medida.repository import UnidadMedidaRepository
 
 class UnidadMedidaUnitOfWork(UnitOfWork):
     def __init__(self, session: Session) -> None:

@@ -5,12 +5,12 @@ from sqlmodel import Session
 from app.core.cloudinary_service import eliminar_imagen
 from app.core.enums import EstadoFiltro
 from app.core.service import base_service
-from app.modules.dominio_2.categoria.models import Categoria
-from app.modules.dominio_2.categoria.schemas import (
+from app.modules.categorias.models import Categoria
+from app.modules.categorias.schemas import (
     CategoriaCreate, CategoriaUpdate, CategoriaRead,
     CategoriaReadFull, ProductoBasicRead, CategoriaTreeList, CategoriaTreeNode
 )
-from app.modules.dominio_2.categoria.unit_of_work import CategoriaUnitOfWork
+from app.modules.categorias.unit_of_work import CategoriaUnitOfWork
 
 class CategoriaService(base_service[Categoria, CategoriaCreate, CategoriaUpdate, CategoriaUnitOfWork]):
     def __init__(self, session: Session) -> None:

@@ -6,12 +6,12 @@ from app.core.deps import require_role
 from app.core.database import get_session
 from app.core.enums import EstadoFiltro
 from app.core.schemas import PaginatedResponse
-from app.modules.dominio_2.UnidadMedida.schemas import (
+from app.modules.unidades_medida.schemas import (
     UnidadMedidaCreate,
     UnidadMedidaRead,
     UnidadMedidaUpdate
 )
-from app.modules.dominio_2.UnidadMedida.service import UnidadMedidaService
+from app.modules.unidades_medida.service import UnidadMedidaService
 
 router = APIRouter()
 

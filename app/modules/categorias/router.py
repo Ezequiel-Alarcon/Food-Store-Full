@@ -6,11 +6,11 @@ from app.core.database import get_session
 from app.core.deps import require_role
 from app.core.enums import EstadoFiltro
 from app.core.schemas import PaginatedResponse
-from app.modules.dominio_2.categoria.schemas import (
+from app.modules.categorias.schemas import (
     CategoriaCreate, CategoriaRead, 
     CategoriaReadFull, CategoriaTreeList, CategoriaUpdate
 )
-from app.modules.dominio_2.categoria.service import CategoriaService
+from app.modules.categorias.service import CategoriaService
 
 router = APIRouter(tags=["Categorías"])
 

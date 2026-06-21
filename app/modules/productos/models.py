@@ -10,9 +10,9 @@ from sqlalchemy.orm import declared_attr
 
 
 if TYPE_CHECKING:
-    from ..UnidadMedida.models import UnidadMedida
-    from ..categoria.models import Categoria
-    from ..ingrediente.models import Ingrediente
+    from ..unidades_medida.models import UnidadMedida
+    from ..categorias.models import Categoria
+    from ..ingredientes.models import Ingrediente
 
 
 class ProductoCategoria(SQLModel, table=True):
@@ -119,4 +119,3 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
     unidad_venta: Optional["UnidadMedida"] = Relationship()
     links_categorias: list["ProductoCategoria"] = Relationship()
     links_ingredientes: list["ProductoIngrediente"] = Relationship()
-

@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import selectinload
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
-from app.modules.dominio_2.categoria.models import Categoria
+from app.modules.categorias.models import Categoria
 
 class CategoriaRepository(BaseRepository[Categoria]):
     def __init__(self, session: Session) -> None:

@@ -9,7 +9,7 @@ class UnidadMedidaBase(SQLModel):
 class UnidadMedidaCreate(UnidadMedidaBase):
     pass
 
-class UnidadMedidaUpdate(UnidadMedidaBase):
+class UnidadMedidaUpdate(SQLModel):
     nombre: Optional[str] = Field(default=None, max_length=50)
     simbolo: Optional[str] = Field(default=None, max_length=10)
     tipo: Optional[str] = Field(default=None, max_length=20)

@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING, ClassVar, Optional, List
 from sqlmodel import Field, Relationship
-from ..producto.models import ProductoIngrediente
+from app.modules.productos.models import ProductoIngrediente
 from app.core.minxins.auditable_mixin import UniqueAuditableMixin
 from sqlmodel import SQLModel
 
 if TYPE_CHECKING:
-    from ..producto.models import Producto
-    from ..UnidadMedida.models import UnidadMedida
+    from ..productos.models import Producto
+    from ..unidades_medida.models import UnidadMedida
 
 class Ingrediente(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "ingredientes"

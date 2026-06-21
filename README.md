@@ -30,11 +30,11 @@ app/
 │   ├── dominio_1/           # Gestión de usuarios
 │   │   ├── usuario/
 │   │   └── direccion_entrega/
-│   ├── dominio_2/          # Gestión de productos
-│   │   ├── categoria/
-│   │   ├── ingrediente/
-│   │   ├── producto/
-│   │   └── UnidadMedida/
+│   ├── modules/           # Gestión de productos
+│   │   ├── categorias/
+│   │   ├── ingredientes/
+│   │   ├── productos/
+│   │   └── unidades_medida/
 │   └── dominio_3/          # Gestión de pedidos
 │       ├── DetallePedido/
 │       ├── EstadoPedido/

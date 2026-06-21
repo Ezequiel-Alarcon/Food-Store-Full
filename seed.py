@@ -8,10 +8,10 @@ from sqlmodel import Session, select, SQLModel
 from app.core.database import engine
 from app.core.security import hash_password
 from app.modules.dominio_1.usuario.models import Usuario, Rol
-from app.modules.dominio_2.categoria.models import Categoria
-from app.modules.dominio_2.ingrediente.models import Ingrediente
-from app.modules.dominio_2.producto.models import Producto, ProductoCategoria, ProductoIngrediente
-from app.modules.dominio_2.UnidadMedida.models import UnidadMedida
+from app.modules.categorias.models import Categoria
+from app.modules.ingredientes.models import Ingrediente
+from app.modules.productos.models import Producto, ProductoCategoria, ProductoIngrediente
+from app.modules.unidades_medida.models import UnidadMedida
 from app.modules.dominio_3.EstadoPedido.models import EstadoPedido
 from app.modules.dominio_3.FormaPago.models import FormaPago
 from app.modules.dominio_3.Pedido.models import Pedido  # noqa: F401
