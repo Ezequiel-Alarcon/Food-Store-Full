@@ -1,9 +1,9 @@
 from app.utils.errores import custom_http_exception_handler, validation_exception_handler
-from app.modules.dominio_1.direccion_entrega.routers import router as direccion_router
-from app.modules.dominio_1.usuario.routers import auth_router, usuarios_router, admin_router
-from app.modules.dominio_3.Pago.routers import router as pago_router
-from app.modules.dominio_3.Estadisticas.router import router as estadisticas_router
-from app.modules.dominio_3.Pedido.routers import router as pedido_router
+from app.modules.direcciones_entrega.router import router as direccion_router
+from app.modules.usuarios.router import auth_router, usuarios_router, admin_router
+from app.modules.pagos.router import router as pago_router
+from app.modules.estadisticas.router import router as estadisticas_router
+from app.modules.pedidos.router import router as pedido_router
 from app.modules.productos.router import router as producto_router
 from app.modules.ingredientes.router import router as ingrediente_router
 from app.modules.categorias.router import router as categoria_router
