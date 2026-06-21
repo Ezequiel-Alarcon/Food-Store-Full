@@ -11,7 +11,7 @@ from app.modules.dominio_2.UnidadMedida.routers import router as unidad_medida_r
 from app.core.logger import setup_logging
 from app.core.database import engine
 from app.core.rate_limit.rate_limit_middleware import RateLimitMiddleware
-from app.core.cloudinary_router import router as imagen_router
+from app.core.cloudinary.router import router as imagen_router
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
@@ -69,16 +69,11 @@ def create_app() -> FastAPI:
     app.include_router(direccion_router, prefix="/api/v1")
 
     # ── Dominio 2 ──────────────────────────────────────
-    app.include_router(categoria_router,
-                       prefix="/api/v1/categorias",     tags=["Categorías"])
-    app.include_router(producto_router,
-                       prefix="/api/v1/productos",      tags=["Productos"])
-    app.include_router(ingrediente_router,
-                       prefix="/api/v1/ingredientes",   tags=["Ingredientes"])
-    app.include_router(unidad_medida_router,
-                       prefix="/api/v1/unidades-medida", tags=["Unidades de Medida"])
-    app.include_router(imagen_router,        prefix="/api/v1",
-                       tags=["Imágenes"])
+    app.include_router(categoria_router, prefix="/api/v1/categorias", tags=["Categorías"])
+    app.include_router(producto_router, prefix="/api/v1/productos", tags=["Productos"])
+    app.include_router(ingrediente_router, prefix="/api/v1/ingredientes", tags=["Ingredientes"])
+    app.include_router(unidad_medida_router, prefix="/api/v1/unidades-medida", tags=["Unidades de Medida"])
+    app.include_router(imagen_router, prefix="/api/v1", tags=["Imágenes"])
 
     # ── Dominio 3 ──────────────────────────────────────
     app.include_router(pedido_router,
