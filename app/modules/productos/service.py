@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from typing import Optional, cast
 from sqlmodel import Session
 
-from app.core.cloudinary_service import eliminar_imagen, eliminar_multiples_imagenes
+from app.core.cloudinary.service import eliminar_imagen, eliminar_multiples_imagenes
 from app.core.enums import EstadoFiltro
 from app.core.service import base_service
 from app.modules.productos.models import Producto, ProductoCategoria, ProductoIngrediente
