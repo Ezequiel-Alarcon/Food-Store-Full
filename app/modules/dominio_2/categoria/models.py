@@ -28,6 +28,9 @@ class Categoria(UniqueAuditableMixin, SQLModel, table=True):
     descripcion: Optional[str] = Field(default=None, description="Descripción")
     
     imagen_url: Optional[str] = Field(..., description="URL de imagen de la categoría")
+    imagen_public_id: Optional[str] = Field(
+        default=None, description="Public ID de la imagen en Cloudinary"
+    )
 
     parent: Optional["Categoria"] = Relationship(
         back_populates="children",

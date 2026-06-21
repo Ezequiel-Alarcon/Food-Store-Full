@@ -1,11 +1,16 @@
 from typing import Annotated, Any
-from fastapi import APIRouter, Depends, status, Response
+from fastapi import APIRouter, Depends, status, Response, Query
 from fastapi.security import OAuth2PasswordRequestForm
 
+from app.core.schemas import PaginatedResponse
 from app.core.deps import get_current_active_user, get_uow, require_role
-from app.modules.dominio_1.usuario.schemas import UserCreate, UserPublic, UserUpdateClient, UserUpdateAdmin,UserPaginationResponse, UserPublicAdminPanel, UserCreateAdmin
+from app.modules.dominio_1.usuario.schemas import (
+    UserCreate, UserPublic, UserUpdateClient, UserUpdateAdmin, 
+    UserPublicAdminPanel, UserCreateAdmin, RefreshTokenRequest
+)
 from app.modules.dominio_1.usuario.service import UsuarioService
 from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork
+
 
 # ==========================================
 # DEPENDENCIAS DEL MÓDULO
@@ -21,17 +26,23 @@ CurrentUser = Annotated[UserPublic, Depends(get_current_active_user)]
 # ==========================================
 auth_router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
+@auth_router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
+def register(data: UserCreate, svc: UsuarioServiceDep) -> Any:
+    """Registra un cliente nuevo y le asigna el rol CLIENT automáticamente."""
+    return svc.register(data)
+
+
 @auth_router.post("/login")
 def login(
     response: Response, 
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()], 
     svc: UsuarioServiceDep
 ) -> Any:
-    
+    """
+    El rate limit de 5/15min se maneja automáticamente por el RateLimitMiddleware.
+    """
     token_obj = svc.login(form_data)
     
-    #TODO : BUG GRAVE - La cookie se setea con `secure=False`. En producción con HTTPS, esto permite que la cookie se transmita en texto plano. Debe ser `secure=True` siempre que se use HTTPS.
-    #TODO : Deuda técnica - El token JWT se devuelve tanto en la cookie HttpOnly como en el body JSON. Esto duplica innecesariamente el token y si el frontend lo almacena en localStorage, anula el propósito de seguridad de la cookie HttpOnly.
     response.set_cookie(
         key="access_token",
         value=token_obj.access_token,
@@ -39,20 +50,49 @@ def login(
         max_age=token_obj.expires_in,
         expires=token_obj.expires_in,
         samesite="lax",
-        secure=False, # Poner en True si usás HTTPS en producción
+        secure=False, 
         path="/"
     )
-    return {"mensaje": "Login exitoso", "access_token": token_obj.access_token, "token_type": "bearer"}
+    # Devuelve 200 OK por defecto con la estructura del Token
+    return token_obj
 
-@auth_router.post("/logout")
-def logout(response: Response) -> Any:
-    response.delete_cookie(key="access_token")
-    return {"mensaje": "Logout exitoso"}
 
-@auth_router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
-def register(data: UserCreate, svc: UsuarioServiceDep) -> Any:
-    """Registra un cliente nuevo y le asigna el rol CLIENT automáticamente."""
-    return svc.register(data)
+@auth_router.post("/refresh")
+def refresh(response: Response, data: RefreshTokenRequest, svc: UsuarioServiceDep) -> Any:
+    """Refresca el token de sesión usando un refresh_token."""
+    # 1. Generamos los nuevos tokens desde el servicio
+    token_obj = svc.refresh_token(data.refresh_token)
+    
+    # 2. Inyectamos el nuevo access token en la cookie para el frontend
+    response.set_cookie(
+        key="access_token",
+        value=token_obj.access_token,
+        httponly=True,
+        max_age=token_obj.expires_in,
+        expires=token_obj.expires_in,
+        samesite="lax",
+        secure=False, 
+        path="/"
+    )
+    return token_obj
+
+
+@auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(data: RefreshTokenRequest, response: Response, current_user: CurrentUser, svc: UsuarioServiceDep) -> None:
+    """Cierra sesión borrando la cookie y revocando el refresh token."""
+    # 1. Revocamos el token de la base de datos
+    svc.logout(data.refresh_token)
+    
+    # 2. Borramos la cookie del navegador
+    response.delete_cookie(key="access_token", path="/")
+    return None
+
+
+# @auth_router.get("/me", response_model=UserPublicAdminPanel)
+# def read_user_me(current_user: CurrentUser) -> Any:
+#     """Devuelve los datos del usuario logueado actualmente. (200 OK)"""
+#     return current_user
+
 
 # ==========================================
 # GRUPO 2: PERFIL DEL CLIENTE (Privado)
@@ -85,29 +125,30 @@ def create_user_by_admin(
     svc: UsuarioServiceDep
 ) -> Any:
     """El Admin crea un usuario asignándole roles específicos manualmente."""
-    
-    # 1. Separamos los datos base del usuario de la lista de roles
     datos_usuario = data.model_dump(exclude={"roles_codigos"})
     user_in = UserCreate(**datos_usuario)
-    
     return svc.create_user_admin(user_in=user_in, roles_codigos=data.roles_codigos)
 
-@admin_router.get("/", response_model=UserPaginationResponse)
+
+@admin_router.get("/", response_model=PaginatedResponse[UserPublicAdminPanel])
 def get_all_users(
     svc: UsuarioServiceDep, 
-    offset: int = 0, 
-    limit: int = 20, 
+    page: int = Query(1, ge=1, description="Número de página"), 
+    size: int = Query(20, ge=1, le=100, description="Cantidad de items por página"), 
     rol_codigo: str | None = None
 ) -> Any:
     """Lista todos los usuarios activos. Permite paginación y filtrado por rol."""
-    return svc.get_all_users(offset=offset, limit=limit, rol_codigo=rol_codigo)
+    return svc.get_all_users(page=page, size=size, rol_codigo=rol_codigo)
+
 
 @admin_router.patch("/{user_id}", response_model=UserPublicAdminPanel)
 def update_user_by_admin(user_id: int, data: UserUpdateAdmin, svc: UsuarioServiceDep) -> Any:
     """El Admin actualiza los datos y/o los roles de cualquier usuario."""
     return svc.update_user_by_admin(user_id, data)
 
-@admin_router.delete("/{user_id}")
-def delete_user(user_id: int,svc: UsuarioServiceDep) -> Any:
+
+@admin_router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, svc: UsuarioServiceDep) -> None:
     """Aplica un borrado lógico (soft delete) a un usuario."""
-    return svc.desactivar_usuario(user_id)
+    svc.desactivar_usuario(user_id)
+    return None

@@ -1,6 +1,6 @@
 """
-Seed principal. Ejecutar: python seed_all.py
-Crea en orden: roles → admin → estados → formas de pago → categorías → ingredientes → productos
+Seed principal. Ejecutar: python seed.py
+Crea en orden: roles → admin → estados → formas de pago → unidades → categorías → ingredientes → productos
 """
 from decimal import Decimal
 from sqlmodel import Session, select, SQLModel
@@ -81,17 +81,53 @@ def seed():
         else:
             print("  ✅ Cliente de prueba ya existe, se omite.")
 
+
+        email_pedidos = "pedidos@foodstore.com"
+        pedidos_prueba = session.exec(select(Usuario).where(Usuario.email == email_pedidos)).first()
+        if not pedidos_prueba:
+            print("  Creando usuario PEDIDOS de prueba...")
+            nuevo_pedidos = Usuario(
+                nombre="Gestor",
+                apellido="Pedidos",
+                email=email_pedidos,
+                celular="2610000002",
+                password_hash=hash_password("pedidos123"),
+            )
+            nuevo_pedidos.roles.append(roles_db["PEDIDOS"])
+            session.add(nuevo_pedidos)
+            session.commit()
+            print("  ✅ Pedidos creado (pedidos@foodstore.com / pedidos123)")
+        else:
+            print("  ✅ Pedidos de prueba ya existe, se omite.")
+
+        email_stock = "stock@foodstore.com"
+        stock_prueba = session.exec(select(Usuario).where(Usuario.email == email_stock)).first()
+        if not stock_prueba:
+            print("  Creando usuario STOCK de prueba...")
+            nuevo_stock = Usuario(
+                nombre="Gestor",
+                apellido="Stock",
+                email=email_stock,
+                celular="2610000003",
+                password_hash=hash_password("stock123"),
+            )
+            nuevo_stock.roles.append(roles_db["STOCK"])
+            session.add(nuevo_stock)
+            session.commit()
+            print("  ✅ Stock creado (stock@foodstore.com / stock123)")
+        else:
+            print("  ✅ Stock de prueba ya existe, se omite.")
+
         # ══════════════════════════════════════════════════════
         # DOMINIO 3 — Estados de pedido y formas de pago
         # ══════════════════════════════════════════════════════
 
         estados = [
-            {"codigo": "PENDIENTE",  "descripcion": "Pedido ingresado y pendiente de confirmación", "orden": 1,  "es_terminal": False},
-            {"codigo": "CONFIRMADO", "descripcion": "Pedido confirmado por el comercio",             "orden": 2,  "es_terminal": False},
-            {"codigo": "EN_PREP",    "descripcion": "Pedido en preparación",                         "orden": 3,  "es_terminal": False},
-            {"codigo": "EN_CAMINO",  "descripcion": "Pedido en camino al cliente",                   "orden": 4,  "es_terminal": False},
-            {"codigo": "ENTREGADO",  "descripcion": "Pedido entregado exitosamente",                 "orden": 5,  "es_terminal": True},
-            {"codigo": "CANCELADO",  "descripcion": "Pedido cancelado",                              "orden": 99, "es_terminal": True},
+            {"codigo": "PENDIENTE",  "descripcion": "Pedido ingresado y pendiente de confirmación",     "orden": 1,  "es_terminal": False},
+            {"codigo": "CONFIRMADO", "descripcion": "Pedido confirmado por el comercio",                "orden": 2,  "es_terminal": False},
+            {"codigo": "EN_PREP",    "descripcion": "Pedido en preparación",                            "orden": 3,  "es_terminal": False},
+            {"codigo": "ENTREGADO",  "descripcion": "Pedido entregado exitosamente",                    "orden": 5,  "es_terminal": True},
+            {"codigo": "CANCELADO",  "descripcion": "Pedido cancelado",                                 "orden": 99, "es_terminal": True},
         ]
         for est_data in estados:
             est = session.exec(select(EstadoPedido).where(EstadoPedido.codigo == est_data["codigo"])).first()
@@ -111,6 +147,29 @@ def seed():
                 session.add(FormaPago(**fp_data))
         session.commit()
 
+
+        # ══════════════════════════════════════════════════════
+        # DOMINIO 2 — Unidades de medida (PRIMERO)
+        # ══════════════════════════════════════════════════════
+        unidades = [
+            {"nombre": "Kilogramo",    "simbolo": "kg",  "tipo": "peso"},
+            {"nombre": "Gramo",        "simbolo": "g",   "tipo": "peso"},
+            {"nombre": "Litro",        "simbolo": "L",   "tipo": "volumen"},
+            {"nombre": "Mililitro",    "simbolo": "mL",  "tipo": "volumen"},
+            {"nombre": "Unidad",       "simbolo": "u",   "tipo": "unidad"},
+            {"nombre": "Docena",       "simbolo": "doc", "tipo": "unidad"},
+            {"nombre": "Metro cuadrado", "simbolo": "m²", "tipo": "superficie"},
+        ]
+        for u in unidades:
+            if not session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == u["simbolo"])).first():
+                session.add(UnidadMedida(**u))
+        session.flush() # Guardamos para generar IDs
+        
+        # Obtenemos el ID de la unidad "u" para usarla en los ingredientes
+        unidad_u = session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == "u")).one()
+        unidad_id = unidad_u.id
+
+
         # ══════════════════════════════════════════════════════
         # DOMINIO 2 — Categorías, ingredientes y productos
         # ══════════════════════════════════════════════════════
@@ -129,37 +188,24 @@ def seed():
         session.add_all([veganas, sin_tacc, gaseosas])
         session.flush()
 
-        # ── Ingredientes ──────────────────────────────────────
-        pan_brioche  = Ingrediente(nombre="Pan Brioche",          descripcion="Pan suave y esponjoso",    es_alergeno=True)
-        pan_sin_tacc = Ingrediente(nombre="Pan Sin TACC",         descripcion="Pan libre de gluten",       es_alergeno=False)
-        carne_250    = Ingrediente(nombre="Carne Vacuna 250g",    descripcion="Medallón de res premium",   es_alergeno=False)
-        medallon_veg = Ingrediente(nombre="Medallón Vegano",      descripcion="Base de legumbres y avena", es_alergeno=False)
-        queso_ch     = Ingrediente(nombre="Queso Cheddar",        descripcion="Cheddar fundido americano", es_alergeno=True)
-        queso_veg    = Ingrediente(nombre="Queso Vegano",         descripcion="Alternativa plant-based",   es_alergeno=False)
-        lechuga      = Ingrediente(nombre="Lechuga",              descripcion="Lechuga fresca",            es_alergeno=False)
-        tomate       = Ingrediente(nombre="Tomate",               descripcion="Tomate perita en rodajas",  es_alergeno=False)
-        cebolla_c    = Ingrediente(nombre="Cebolla Caramelizada", descripcion="Cebolla dulce",             es_alergeno=False)
-        bacon        = Ingrediente(nombre="Bacon Crocante",       descripcion="Panceta ahumada",           es_alergeno=False)
-        salsa_bbq    = Ingrediente(nombre="Salsa BBQ",            descripcion="Salsa ahumada casera",      es_alergeno=False)
-        mayonesa     = Ingrediente(nombre="Mayonesa",             descripcion="Mayo artesanal",            es_alergeno=True)
+        # ── Ingredientes ──────────────────────────────────────────────────────
+        pan_brioche  = Ingrediente(nombre="Pan Brioche",          descripcion="Pan suave y esponjoso",    es_alergeno=True,  unidad_medida_id=unidad_id)
+        pan_sin_tacc = Ingrediente(nombre="Pan Sin TACC",         descripcion="Pan libre de gluten",       es_alergeno=False, unidad_medida_id=unidad_id)
+        carne_250    = Ingrediente(nombre="Carne Vacuna 250g",    descripcion="Medallón de res premium",   es_alergeno=False, unidad_medida_id=unidad_id)
+        medallon_veg = Ingrediente(nombre="Medallón Vegano",      descripcion="Base de legumbres y avena", es_alergeno=False, unidad_medida_id=unidad_id)
+        queso_ch     = Ingrediente(nombre="Queso Cheddar",        descripcion="Cheddar fundido americano", es_alergeno=True,  unidad_medida_id=unidad_id)
+        queso_veg    = Ingrediente(nombre="Queso Vegano",         descripcion="Alternativa plant-based",   es_alergeno=False, unidad_medida_id=unidad_id)
+        lechuga      = Ingrediente(nombre="Lechuga",              descripcion="Lechuga fresca",            es_alergeno=False, unidad_medida_id=unidad_id)
+        tomate       = Ingrediente(nombre="Tomate",               descripcion="Tomate perita en rodajas",  es_alergeno=False, unidad_medida_id=unidad_id)
+        cebolla_c    = Ingrediente(nombre="Cebolla Caramelizada", descripcion="Cebolla dulce",             es_alergeno=False, unidad_medida_id=unidad_id)
+        bacon        = Ingrediente(nombre="Bacon Crocante",       descripcion="Panceta ahumada",           es_alergeno=False, unidad_medida_id=unidad_id)
+        salsa_bbq    = Ingrediente(nombre="Salsa BBQ",            descripcion="Salsa ahumada casera",      es_alergeno=False, unidad_medida_id=unidad_id)
+        mayonesa     = Ingrediente(nombre="Mayonesa",             descripcion="Mayo artesanal",            es_alergeno=True,  unidad_medida_id=unidad_id)
+        
         session.add_all([pan_brioche, pan_sin_tacc, carne_250, medallon_veg, queso_ch, queso_veg, lechuga, tomate, cebolla_c, bacon, salsa_bbq, mayonesa])
         session.flush()
 
-        # ── Unidades de medida ────────────────────────────────
-        unidades = [
-            {"nombre": "Kilogramo",      "simbolo": "kg",  "tipo": "peso"},
-            {"nombre": "Gramo",          "simbolo": "g",   "tipo": "peso"},
-            {"nombre": "Litro",          "simbolo": "L",   "tipo": "volumen"},
-            {"nombre": "Mililitro",      "simbolo": "mL",  "tipo": "volumen"},
-            {"nombre": "Unidad",         "simbolo": "u",   "tipo": "unidad"},
-            {"nombre": "Docena",         "simbolo": "doc", "tipo": "unidad"},
-            {"nombre": "Metro cuadrado", "simbolo": "m²",  "tipo": "superficie"},
-        ]
-        for u in unidades:
-            if not session.exec(select(UnidadMedida).where(UnidadMedida.simbolo == u["simbolo"])).first():
-                session.add(UnidadMedida(**u))
-        session.flush()
-
+    
         # ── Productos ─────────────────────────────────────────
         clasica       = Producto(nombre="Hamburguesa Clásica", descripcion="La de siempre, perfecta de siempre.",    precio_base=Decimal("1500.00"), imagenes_url=["https://via.placeholder.com/400x300?text=Clasica"],  stock_cantidad=50)
         bbq           = Producto(nombre="Burger BBQ Bacon",    descripcion="Ahumada, crocante y con todo.",           precio_base=Decimal("1900.00"), imagenes_url=["https://via.placeholder.com/400x300?text=BBQ"],      stock_cantidad=30)
@@ -182,39 +228,57 @@ def seed():
         session.add(ProductoCategoria(producto_id=limonada.id,      categoria_id=bebidas.id,      es_principal=True))
 
         # ── Producto ↔ Ingrediente ────────────────────────────
+        def add_ing(prod_id, ing_id, es_removible=True):
+            session.add(ProductoIngrediente(
+                producto_id=prod_id,
+                ingrediente_id=ing_id,
+                cantidad=Decimal("1.0"),
+                unidad_medida_id=unidad_id,
+                es_removible=es_removible
+            ))
+
         # Clásica
-        session.add(ProductoIngrediente(producto_id=clasica.id, ingrediente_id=pan_brioche.id, es_removible=False))
-        session.add(ProductoIngrediente(producto_id=clasica.id, ingrediente_id=carne_250.id,   es_removible=False))
-        session.add(ProductoIngrediente(producto_id=clasica.id, ingrediente_id=queso_ch.id,    es_removible=True))
-        session.add(ProductoIngrediente(producto_id=clasica.id, ingrediente_id=lechuga.id,     es_removible=True))
-        session.add(ProductoIngrediente(producto_id=clasica.id, ingrediente_id=tomate.id,      es_removible=True))
-        session.add(ProductoIngrediente(producto_id=clasica.id, ingrediente_id=mayonesa.id,    es_removible=True))
+        add_ing(clasica.id, pan_brioche.id, False)
+        add_ing(clasica.id, carne_250.id, False)
+        add_ing(clasica.id, queso_ch.id, True)
+        add_ing(clasica.id, lechuga.id, True)
+        add_ing(clasica.id, tomate.id, True)
+        add_ing(clasica.id, mayonesa.id, True)
+        
         # BBQ
-        session.add(ProductoIngrediente(producto_id=bbq.id, ingrediente_id=pan_brioche.id, es_removible=False))
-        session.add(ProductoIngrediente(producto_id=bbq.id, ingrediente_id=carne_250.id,   es_removible=False))
-        session.add(ProductoIngrediente(producto_id=bbq.id, ingrediente_id=bacon.id,       es_removible=True))
-        session.add(ProductoIngrediente(producto_id=bbq.id, ingrediente_id=queso_ch.id,    es_removible=True))
-        session.add(ProductoIngrediente(producto_id=bbq.id, ingrediente_id=cebolla_c.id,   es_removible=True))
-        session.add(ProductoIngrediente(producto_id=bbq.id, ingrediente_id=salsa_bbq.id,   es_removible=True))
+        add_ing(bbq.id, pan_brioche.id, False)
+        add_ing(bbq.id, carne_250.id, False)
+        add_ing(bbq.id, bacon.id, True)
+        add_ing(bbq.id, queso_ch.id, True)
+        add_ing(bbq.id, cebolla_c.id, True)
+        add_ing(bbq.id, salsa_bbq.id, True)
+
         # Vegana
-        session.add(ProductoIngrediente(producto_id=vegana_prod.id, ingrediente_id=pan_brioche.id,  es_removible=False))
-        session.add(ProductoIngrediente(producto_id=vegana_prod.id, ingrediente_id=medallon_veg.id, es_removible=False))
-        session.add(ProductoIngrediente(producto_id=vegana_prod.id, ingrediente_id=queso_veg.id,    es_removible=True))
-        session.add(ProductoIngrediente(producto_id=vegana_prod.id, ingrediente_id=lechuga.id,      es_removible=True))
-        session.add(ProductoIngrediente(producto_id=vegana_prod.id, ingrediente_id=tomate.id,       es_removible=True))
+        add_ing(vegana_prod.id, pan_brioche.id, False)
+        add_ing(vegana_prod.id, medallon_veg.id, False)
+        add_ing(vegana_prod.id, queso_veg.id, True)
+        add_ing(vegana_prod.id, lechuga.id, True)
+        add_ing(vegana_prod.id, tomate.id, True)
+
         # Sin TACC
-        session.add(ProductoIngrediente(producto_id=sin_tacc_prod.id, ingrediente_id=pan_sin_tacc.id, es_removible=False))
-        session.add(ProductoIngrediente(producto_id=sin_tacc_prod.id, ingrediente_id=carne_250.id,    es_removible=False))
-        session.add(ProductoIngrediente(producto_id=sin_tacc_prod.id, ingrediente_id=queso_ch.id,     es_removible=True))
-        session.add(ProductoIngrediente(producto_id=sin_tacc_prod.id, ingrediente_id=lechuga.id,      es_removible=True))
-        session.add(ProductoIngrediente(producto_id=sin_tacc_prod.id, ingrediente_id=tomate.id,       es_removible=True))
+        add_ing(sin_tacc_prod.id, pan_sin_tacc.id, False)
+        add_ing(sin_tacc_prod.id, carne_250.id, False)
+        add_ing(sin_tacc_prod.id, queso_ch.id, True)
+        add_ing(sin_tacc_prod.id, lechuga.id, True)
+        add_ing(sin_tacc_prod.id, tomate.id, True)
 
         session.commit()
 
     print("--- SEED FINALIZADO ✅ ---")
-    print("   • 4 roles + usuario admin")
-    print("   • 6 estados de pedido + 3 formas de pago")
+    print("   • 4 roles + usuarios de prueba")
+    print("   • 5 estados de pedido + 3 formas de pago")
     print("   • 6 categorías + 12 ingredientes + 7 unidades de medida + 6 productos")
+    print("\n--- CUENTAS DE PRUEBA ---")
+    print("   👤 Admin:   admin@foodstore.com   / admin123")
+    print("   📦 Pedidos: pedidos@foodstore.com / pedidos123")
+    print("   📊 Stock:   stock@foodstore.com   / stock123")
+    print("   🍔 Cliente: cliente@foodstore.com / cliente123")
+    print("-------------------------")
 
 
 if __name__ == "__main__":

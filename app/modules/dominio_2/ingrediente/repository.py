@@ -1,5 +1,6 @@
 from sqlmodel import Session, select, func
 from typing import Optional
+from sqlalchemy.orm import selectinload
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
 from app.modules.dominio_2.ingrediente.models import Ingrediente
@@ -22,7 +23,7 @@ class IngredienteRepository(BaseRepository[Ingrediente]):
         offset: int = 0, 
         limit: int = 20
     ) -> list[Ingrediente]:
-        statement = select(Ingrediente)
+        statement = select(Ingrediente).options(selectinload(Ingrediente.unidad_medida),selectinload(Ingrediente.productos))
         statement = self._filter_state(statement, state)
         
         if is_alergeno is not None:

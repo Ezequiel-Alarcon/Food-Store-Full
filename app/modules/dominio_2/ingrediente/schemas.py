@@ -14,13 +14,17 @@ class IngredienteBase(SQLModel):
     es_alergeno: bool = Field(
         default=False, description="Indica si el ingrediente es un alérgeno")
     descripcion: Optional[str] = Field(default=None, description="Descripción del ingrediente")
+    imagen_url: Optional[str] = Field(default=None, description="URL de imagen del ingrediente")
+    imagen_public_id: Optional[str] = Field(
+        default=None, description="Public ID de la imagen en Cloudinary"
+    )
 
 
 # ─── Request schemas ──────────────────────────────────────────────────────────────────────
 
 
 class IngredienteCreate(IngredienteBase):
-    pass
+    unidad_medida_id: Optional[int] = Field(default=1, description="ID de la unidad de medida")
 
 
 class IngredienteUpdate(SQLModel):
@@ -30,6 +34,11 @@ class IngredienteUpdate(SQLModel):
         default=None, description="Indica si el ingrediente es un alérgeno")
     descripcion: Optional[str] = Field(
         default=None, description="Descripción del ingrediente")
+    imagen_url: Optional[str] = Field(
+        default=None, description="URL de imagen del ingrediente")
+    imagen_public_id: Optional[str] = Field(
+        default=None, description="Public ID de la imagen en Cloudinary"
+    )
 
 
 # ─── Response schemas ────────────────────────────────────────────────────────────────────

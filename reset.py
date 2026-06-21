@@ -17,6 +17,7 @@ def nuke_database():
                 ingredientes,
                 categorias,
                 unidadmedida,
+                unidades_medida,
                 refresh_token,
                 direccion_entrega,
                 usuario_rol,

@@ -5,9 +5,9 @@ from sqlmodel import Session
 from app.core.deps import require_role
 from app.core.database import get_session
 from app.core.enums import EstadoFiltro
+from app.core.schemas import PaginatedResponse
 from app.modules.dominio_2.UnidadMedida.schemas import (
     UnidadMedidaCreate,
-    UnidadMedidaList,
     UnidadMedidaRead,
     UnidadMedidaUpdate
 )
@@ -24,14 +24,14 @@ def get_unidad_medida_service(session: Session = Depends(get_session)) -> Unidad
 def create_unidad_medida(data: UnidadMedidaCreate, svc: UnidadMedidaService = Depends(get_unidad_medida_service)):
     return svc.create(data)
 
-@router.get("/", response_model=UnidadMedidaList, summary="Listar unidades de medida")
+@router.get("/", response_model=PaginatedResponse[UnidadMedidaRead], summary="Listar unidades de medida")
 def list_unidades_medida(
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    page: Annotated[int, Query(ge=1, description="Número de página")] = 1,
+    size: Annotated[int, Query(ge=1, le=100, description="Cantidad de items por página")] = 20,
     estado: Annotated[EstadoFiltro, Query(description="Filtrar por estado")] = EstadoFiltro.ACTIVO,
     svc: UnidadMedidaService = Depends(get_unidad_medida_service)
 ):
-    return svc.get_all_unidades(offset=offset, limit=limit, estado=estado)
+    return svc.get_all_unidades(page=page, size=size, estado=estado)
 
 @router.get("/{unidad_id}", response_model=UnidadMedidaRead, summary="Obtener unidad de medida")
 def get_unidad_medida(
@@ -54,4 +54,5 @@ def delete_unidad_medida(
     unidad_id: Annotated[int, Path(ge=1)], 
     svc: UnidadMedidaService = Depends(get_unidad_medida_service)
 ):
-    return svc.delete(unidad_id)
+    svc.delete(unidad_id)
+    return None

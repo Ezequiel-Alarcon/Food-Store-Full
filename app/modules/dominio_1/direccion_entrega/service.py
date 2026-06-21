@@ -11,11 +11,12 @@ from app.modules.dominio_1.direccion_entrega.repository import DireccionReposito
 
 class DireccionService(base_service[DireccionEntrega, DireccionCreate, DireccionUpdate, UsuarioUnitOfWork]):
     def __init__(self, session: Session):
-        uow = UsuarioUnitOfWork(session)
-        self.session = session
-        self.uow = uow
-        self._repo_name = "direcciones"
-        self.model_class = DireccionEntrega
+        super().__init__(
+            session,
+            UsuarioUnitOfWork(session),
+            "direcciones",
+            DireccionEntrega
+        )
 
     @property
     def repo(self) -> DireccionRepository:
@@ -30,6 +31,10 @@ class DireccionService(base_service[DireccionEntrega, DireccionCreate, Direccion
             )
         return direccion
 
+    def obtener_direccion_propia(self, direccion_id: int, usuario_id: int) -> DireccionEntrega:
+        with self.uow:
+            return self._get_direccion_segura_or_404(direccion_id, usuario_id)
+
     # ================= OVERRIDES CON LÓGICA DE NEGOCIO =================
 
     def crear_direccion_propia(self, usuario_id: int, item_in: DireccionCreate) -> DireccionEntrega:
@@ -37,7 +42,7 @@ class DireccionService(base_service[DireccionEntrega, DireccionCreate, Direccion
             mis_direcciones = self.repo.get_by_usuario(usuario_id)
             es_primera = len(mis_direcciones) == 0
 
-            nueva_direccion = self.model_class(
+            nueva_direccion = self.model(
                 **item_in.model_dump(),
                 usuario_id=usuario_id,
                 es_principal=es_primera

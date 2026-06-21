@@ -1,6 +1,5 @@
 from decimal import Decimal
 from fastapi import HTTPException
-
 from app.modules.dominio_3.DetallePedido.models import DetallePedido
 from app.modules.dominio_3.DetallePedido.schemas import DetallePedidoRead
 from app.modules.dominio_3.HistorialEstadoPedido.models import HistorialEstadoPedido
@@ -16,20 +15,51 @@ from app.modules.dominio_3.Pedido.schemas import (
     PedidoRead
 )
 from app.modules.dominio_3.Pedido.unit_of_work import PedidoUnitOfWork
+import logging
 
+logger = logging.getLogger("app.modules.dominio_3.Pedido.service")
+logging.basicConfig(level=logging.INFO)
 
 class PedidoService:
-    ESTADO_INICIAL = "PENDIENTE"
+    # ─── Normalización de estados ────────────────────────────────────────────────
+    # Unifica variaciones de entrada (inglés, mayúsculas, parcial) a valores canónicos
+    ESTADOS = {
+        "pendiente": "PENDIENTE", "pending": "PENDIENTE",
+        "confirmado": "CONFIRMADO", "confirmed": "CONFIRMADO",
+        "en_prep": "EN_PREP", "en_preparacion": "EN_PREP", "preparando": "EN_PREP",
+        "entregado": "ENTREGADO", "delivered": "ENTREGADO",
+        "cancelado": "CANCELADO", "cancelled": "CANCELADO",
+    }
+
+    # ─── FSM + Permisos por rol ──────────────────────────────────────────────────
+    # Un solo lugar define qué transiciones puede hacer cada rol.
+    # Si un rol no está en el dict, no tiene permisos para avanzar estados.
+    TRANSICIONES = {
+        "ADMIN": {
+            "PENDIENTE":  {"CONFIRMADO", "CANCELADO"},
+            "CONFIRMADO": {"EN_PREP", "CANCELADO"},
+            "EN_PREP":    {"ENTREGADO", "CANCELADO"},
+            "ENTREGADO":  set(),
+            "CANCELADO":  set(),
+        },
+        "PEDIDOS": {
+            "PENDIENTE":  {"CONFIRMADO", "CANCELADO"},
+            "CONFIRMADO": {"EN_PREP", "CANCELADO"},
+            "EN_PREP":    {"ENTREGADO", "CANCELADO"},
+            "ENTREGADO":  set(),
+            "CANCELADO":  set(),
+        },
+        "COCINA": {
+            "CONFIRMADO": {"EN_PREP"},
+            "EN_PREP":    {"ENTREGADO"},
+        },
+        "CLIENT": {
+            "PENDIENTE":  {"CANCELADO"},
+        },
+    }
+    
     DESCUENTO_INICIAL = Decimal("0.00")
     COSTO_ENVIO_FIJO = Decimal("50.00")
-    TRANSICIONES_VALIDAS = {
-        "PENDIENTE": {"CONFIRMADO", "CANCELADO"},
-        "CONFIRMADO": {"PENDIENTE", "EN_PREP", "CANCELADO"},
-        "EN_PREP": {"CONFIRMADO", "EN_CAMINO", "CANCELADO"},
-        "EN_CAMINO": {"EN_PREP", "ENTREGADO", "CANCELADO"},
-        "ENTREGADO": set(),
-        "CANCELADO": set(),
-    }
 
     def __init__(self, uow: PedidoUnitOfWork):
         self._uow = uow
@@ -39,7 +69,7 @@ class PedidoService:
             self._validar_forma_pago(uow, data.forma_pago_codigo)
             self._obtener_estado_o_error(
                 uow=uow,
-                codigo=self.ESTADO_INICIAL,
+                codigo=self.ESTADOS['pendiente'],
                 mensaje="Estado inicial no configurado",
                 status_code=500,
             )
@@ -85,7 +115,7 @@ class PedidoService:
             pedido = Pedido(
                 usuario_id=usuario_id,
                 direccion_id=data.direccion_id,
-                estado_codigo=self.ESTADO_INICIAL,
+                estado_codigo=self.ESTADOS['pendiente'],
                 forma_pago_codigo=data.forma_pago_codigo,
                 subtotal=subtotal,
                 descuento=descuento,
@@ -123,7 +153,7 @@ class PedidoService:
                 uow=uow,
                 pedido_id=pedido.id,
                 estado_desde=None,
-                estado_hacia=self.ESTADO_INICIAL,
+                estado_hacia=self.ESTADOS['pendiente'],
                 usuario_id=usuario_id,
                 motivo="Pedido creado",
             )
@@ -149,6 +179,7 @@ class PedidoService:
         pedido_id: int,
         data: PedidoCambioEstado,
         usuario_id: int,
+        rol: str,
     ) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
@@ -169,22 +200,40 @@ class PedidoService:
                 estado_destino_codigo=estado_destino.codigo,
                 estado_actual_es_terminal=estado_actual.es_terminal,
                 motivo=data.motivo,
+                rol=rol,
             )
-            estado_desde = pedido.estado_codigo
-            pedido.estado_codigo = estado_destino.codigo
-            pedido = uow.pedidos.update(pedido)
             
-            if estado_destino.codigo == "CANCELADO":
+            estado_origen = pedido.estado_codigo
+            
+            # Actualizamos el estado del pedido
+            pedido.estado_codigo = estado_destino.codigo
+            
+            # Auditoría por consola (Log)
+            logger.info(
+                f"AUDITORÍA FSM: Usuario ID {usuario_id} (Rol: {rol}) "
+                f"avanzó pedido {pedido_id} de '{estado_origen}' a '{estado_destino.codigo}'. "
+                f"Motivo: {data.motivo}"
+            )
+
+            # Registramos el historial en BD
+            uow.pedidos.update(pedido)
+            
+            if estado_destino.codigo == self.ESTADOS['cancelado']:
                 self.restaurar_stock_del_pedido(uow, pedido.id)
                 
             self._registrar_historial(
                 uow=uow,
                 pedido_id=pedido.id,
-                estado_desde=estado_desde,
+                estado_desde=estado_origen,
                 estado_hacia=estado_destino.codigo,
                 usuario_id=usuario_id,
                 motivo=data.motivo,
             )
+            
+            # TODO: Según la rúbrica (RN-06), acá se debe invocar a WSManager.broadcast_pedido() o send_to_room()
+            # DESPUÉS del bloque UoW (fuera del context manager) para notificar el cambio de estado a los clientes/admin conectados.
+            # Se debe importar get_connection_manager de app.core.websocket.
+            
             return self._armar_pedido_read_full(uow, pedido)
 
     def _obtener_pedido_o_404(self, uow, pedido_id: int) -> Pedido:
@@ -221,13 +270,14 @@ class PedidoService:
         estado_destino_codigo: str,
         estado_actual_es_terminal: bool,
         motivo: str | None,
+        rol: str,
     ) -> None:
         if estado_actual_es_terminal:
             raise HTTPException(
                 status_code=409,
                 detail="No se puede cambiar un pedido en estado terminal",
             )
-        transiciones_permitidas = self.TRANSICIONES_VALIDAS.get(
+        transiciones_permitidas = self.TRANSICIONES[rol].get(
             estado_actual_codigo,
             set(),
         )
@@ -236,7 +286,7 @@ class PedidoService:
                 status_code=409,
                 detail=f"No se puede cambiar de {estado_actual_codigo} a {estado_destino_codigo}",
             )
-        if estado_destino_codigo == "CANCELADO" and not motivo:
+        if estado_destino_codigo == self.ESTADOS['cancelado'] and not motivo:
             raise HTTPException(
                 status_code=400,
                 detail="El motivo es obligatorio para cancelar un pedido",
@@ -311,6 +361,24 @@ class PedidoService:
             data = [self._armar_pedido_read_admin(uow, p) for p in pedidos]
             return PedidoListAdmin(data=data, total=total)
 
+    def obtener_pedidos_cocina(self, offset: int = 0, limit: int = 20) -> PedidoListAdmin:
+        with self._uow as uow:
+            # Reutilizamos get_all_active que ya trae los no borrados
+            pedidos = uow.pedidos.get_all_active(offset=0, limit=20)
+            
+            # Filtramos solo confirmado y preparando
+            estados_cocina = {self.ESTADOS["confirmado"], self.ESTADOS["preparando"]}
+            cocina_pedidos = [
+                self._armar_pedido_read_admin(uow, p) 
+                for p in pedidos 
+                if p.estado_codigo in estados_cocina
+            ]
+            
+            # Ordenamos por ID para que los más viejos salgan primero
+            cocina_pedidos.sort(key=lambda p: p.id)
+            
+            return PedidoListAdmin(data=cocina_pedidos, total=len(cocina_pedidos))
+
     def obtener_pedido_propio(self, pedido_id: int, usuario_id: int) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
@@ -319,7 +387,7 @@ class PedidoService:
                     status_code=403, detail="No tenés acceso a este pedido")
             return self._armar_pedido_read_full(uow, pedido)
 
-    def cancelar_pedido_propio(self, pedido_id: int, usuario_id: int, data: PedidoCambioEstado) -> PedidoReadFull:
+    def cancelar_pedido_propio(self, pedido_id: int, usuario_id: int, rol: str, data: PedidoCambioEstado) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
             if pedido.usuario_id != usuario_id:
@@ -329,18 +397,19 @@ class PedidoService:
                 uow, pedido.estado_codigo, "Estado actual inválido", 500)
             self._validar_transicion(
                 estado_actual_codigo=pedido.estado_codigo,
-                estado_destino_codigo="CANCELADO",
+                estado_destino_codigo=self.ESTADOS['cancelado'],
                 estado_actual_es_terminal=estado_actual.es_terminal,
                 motivo=data.motivo,
+                rol=rol,
             )
             estado_desde = pedido.estado_codigo
-            pedido.estado_codigo = "CANCELADO"
+            pedido.estado_codigo = self.ESTADOS['cancelado']
             uow.pedidos.update(pedido)
             
             self.restaurar_stock_del_pedido(uow, pedido.id)
             
             self._registrar_historial(
-                uow, pedido.id, estado_desde, "CANCELADO", usuario_id, data.motivo)
+                uow, pedido.id, estado_desde, self.ESTADOS['cancelado'], usuario_id, data.motivo)
             return self._armar_pedido_read_full(uow, pedido)
 
     def descontar_stock_del_pedido(self, uow, pedido_id: int) -> None:

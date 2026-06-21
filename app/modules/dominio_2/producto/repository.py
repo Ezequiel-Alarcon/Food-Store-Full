@@ -1,5 +1,6 @@
 from typing import Any, Optional, cast
 from sqlmodel import Session, select, func
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.core.repository import BaseRepository
 from app.core.enums import EstadoFiltro
@@ -17,7 +18,11 @@ class ProductoRepository(BaseRepository[Producto]):
         return self.session.exec(statement).first()
 
     def get_by_name(self, name: str, include_deleted: bool = False) -> Producto | None:
-        query = select(Producto).where(Producto.nombre == name)
+        query = select(Producto).options(
+            selectinload(Producto.links_categorias).joinedload(ProductoCategoria.categoria),
+            selectinload(Producto.links_ingredientes).joinedload(ProductoIngrediente.ingrediente)
+        ).where(Producto.nombre == name)
+
         if not include_deleted:
             query = query.where(Producto.deleted_at.is_(None))
         return self.session.exec(query).first()
@@ -33,7 +38,10 @@ class ProductoRepository(BaseRepository[Producto]):
         offset: int = 0,
         limit: int = 20
     ) -> list[Producto]:
-        statement = select(Producto)
+        statement = select(Producto).options(
+            selectinload(Producto.links_categorias).joinedload(ProductoCategoria.categoria),
+            selectinload(Producto.links_ingredientes).joinedload(ProductoIngrediente.ingrediente)
+        )
         statement = self._filter_state(statement, state)
 
         if disponible is not None:

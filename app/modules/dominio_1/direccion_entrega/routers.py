@@ -30,6 +30,10 @@ def crear_direccion(data: DireccionCreate, current_user: CurrentUser, svc: Direc
 def listar_direcciones(current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
     return svc.listar_mis_direcciones(usuario_id=current_user.id)
 
+@router.get("/{direccion_id}", response_model=DireccionRead)
+def get_direccion(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
+    return svc.obtener_direccion_propia(direccion_id=direccion_id, usuario_id=current_user.id)
+
 @router.patch("/{direccion_id}", response_model=DireccionRead)
 def actualizar_direccion(direccion_id: int, data: DireccionUpdate, current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
     return svc.actualizar_direccion_propia(direccion_id=direccion_id, usuario_id=current_user.id, item_in=data)
@@ -38,6 +42,7 @@ def actualizar_direccion(direccion_id: int, data: DireccionUpdate, current_user:
 def marcar_como_principal(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
     return svc.marcar_como_principal(direccion_id=direccion_id, usuario_id=current_user.id)
 
-@router.delete("/{direccion_id}")
-def eliminar_direccion(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> Any:
-    return svc.eliminar_direccion_propia(direccion_id=direccion_id, usuario_id=current_user.id)
+@router.delete("/{direccion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_direccion(direccion_id: int, current_user: CurrentUser, svc: DireccionServiceDep) -> None:
+    svc.eliminar_direccion_propia(direccion_id=direccion_id, usuario_id=current_user.id)
+    return None

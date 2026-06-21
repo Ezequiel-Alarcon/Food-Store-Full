@@ -33,22 +33,34 @@ class ProductoCategoria(SQLModel, table=True):
         nullable=False
     )
 
+    categoria: "Categoria" = Relationship()
+
 class ProductoIngrediente(SQLModel, table=True):
     __tablename__ = "producto_ingrediente"
     
+    @declared_attr
+    def __table_args__(cls):
+        return (CheckConstraint("cantidad > 0", name="ck_producto_ingrediente_cantidad_positiva"),)
+
     producto_id: int = Field(
-        sa_column=Column(Integer, ForeignKey("productos.id", ondelete="CASCADE"), 
-        primary_key=True, nullable=False)
+        sa_column=Column(Integer, ForeignKey("productos.id", ondelete="CASCADE"), primary_key=True, nullable=False)
     )
     ingrediente_id: int = Field(
-        sa_column=Column(Integer, ForeignKey("ingredientes.id", ondelete="RESTRICT"), 
-        primary_key=True, nullable=False)
+        sa_column=Column(Integer, ForeignKey("ingredientes.id", ondelete="RESTRICT"), primary_key=True, nullable=False)
+    )
+    cantidad: Decimal = Field(
+        sa_column=Column(Numeric(10, 3), nullable=False), description="Cantidad requerida para la receta"
+    )
+    unidad_medida_id: int = Field(
+        sa_column=Column(Integer, ForeignKey("unidades_medida.id", ondelete="RESTRICT"), nullable=False)
     )
     es_removible: bool = Field(default=False, description="Indica si el ingrediente es removible")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+    
+    ingrediente: "Ingrediente" = Relationship()
 
 class Producto(UniqueAuditableMixin, SQLModel, table=True):
     __tablename__ = "productos"
@@ -78,7 +90,11 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
         sa_column=Column(Numeric(10, 2), nullable=False),
         description="Precio base del producto"
     )
-    imagenes_url: Optional[list[str]] = Field(default=None, sa_column=Column(ARRAY(String)))    
+    imagenes_url: Optional[list[str]] = Field(default=None, sa_column=Column(ARRAY(String)))
+    imagenes_public_id: Optional[list[str]] = Field(
+        default=None, sa_column=Column(ARRAY(String)),
+        description="Public IDs de las imágenes en Cloudinary, paralelos a imagenes_url",
+    )
     stock_cantidad: int = Field(default=0, ge=0, description="Cantidad en stock")
     disponible: bool = Field(default=True, description="Si el producto está disponible para venta")
     
@@ -99,5 +115,8 @@ class Producto(UniqueAuditableMixin, SQLModel, table=True):
         back_populates="productos",
         link_model=ProductoIngrediente
     )
-    
+
     unidad_venta: Optional["UnidadMedida"] = Relationship()
+    links_categorias: list["ProductoCategoria"] = Relationship()
+    links_ingredientes: list["ProductoIngrediente"] = Relationship()
+

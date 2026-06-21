@@ -14,8 +14,11 @@ class CategoriaBase(SQLModel):
     parent_id: Optional[int] = None
     nombre: str = Field(...,
                         description="Nombre de la categoría", max_length=100)
-    descripcion: Optional[str] = Field(default=None, description="Descripción de la categoría")    
+    descripcion: Optional[str] = Field(default=None, description="Descripción de la categoría")
     imagen_url: str = Field(..., description="URL de imagen de la categoría")
+    imagen_public_id: Optional[str] = Field(
+        default=None, description="Public ID de la imagen en Cloudinary"
+    )
 
 
 # ─── Request schemas ──────────────────────────────────────────────────────────────────────
@@ -31,6 +34,9 @@ class CategoriaUpdate(SQLModel):
         default=None, description="Descripción de la categoría")
     imagen_url: Optional[str] = Field(
         default=None, description="URL de imagen de la categoría")
+    imagen_public_id: Optional[str] = Field(
+        default=None, description="Public ID de la imagen en Cloudinary"
+    )
 
 
 # ─── Response schemas ────────────────────────────────────────────────────────────────────
