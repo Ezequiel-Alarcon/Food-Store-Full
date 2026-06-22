@@ -58,12 +58,14 @@ class PedidoRepository(BaseRepository[Pedido]):
         return self.session.exec(stmt).all()
 
     
-    def get_pedidos_por_estado(self):
+    def get_pedidos_por_estado(self, desde: date, hasta: date):
         stmt = select(
             self.model.estado_codigo,
             func.count(self.model.id).label("cantidad")
         ).where(
-            self.model.estado_codigo != "CANCELADO"
+            self.model.estado_codigo != "CANCELADO",
+            func.date(self.model.created_at) >= desde,
+            func.date(self.model.created_at) <= hasta
         ).group_by(
             self.model.estado_codigo
         )

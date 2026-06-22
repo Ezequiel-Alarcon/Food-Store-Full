@@ -30,13 +30,13 @@ def get_productos_top(desde: date, hasta: date, limit: int = 5, service: Estadis
     return service.get_productos_top(desde, hasta, limit)
 
 @router.get("/pedidos-por-estado", response_model=List[PedidosEstadoItem])
-def get_pedidos_estado(service: EstadisticasService = Depends(get_estadisticas_service)):
-    return service.get_pedidos_por_estado()
+def get_pedidos_estado(desde: date, hasta: date, service: EstadisticasService = Depends(get_estadisticas_service)):
+    return service.get_pedidos_por_estado(desde, hasta)
 
 @router.get("/ingresos", response_model=List[IngresosResponse])
 def get_ingresos(desde: date, hasta: date, service: EstadisticasService = Depends(get_estadisticas_service)):
     return service.get_ingresos_por_forma_pago(desde, hasta)
 
 @router.get("/resumen", response_model=ResumenResponse)
-def get_resumen(service: EstadisticasService = Depends(get_estadisticas_service)):
-    return service.get_resumen_kpis()
+def get_resumen(desde: date, hasta: date, service: EstadisticasService = Depends(get_estadisticas_service)):
+    return service.get_resumen_kpis(desde, hasta)

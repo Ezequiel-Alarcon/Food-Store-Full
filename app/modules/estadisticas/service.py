@@ -35,9 +35,9 @@ class EstadisticasService:
                 ) for row in rows
             ]
 
-    def get_pedidos_por_estado(self) -> List[PedidosEstadoItem]:
+    def get_pedidos_por_estado(self, desde: date, hasta: date) -> List[PedidosEstadoItem]:
         with self.uow:
-            rows = self.uow.pedidos.get_pedidos_por_estado()
+            rows = self.uow.pedidos.get_pedidos_por_estado(desde, hasta)
             return [
                 PedidosEstadoItem(
                     estado_codigo=row.estado_codigo,
@@ -56,28 +56,22 @@ class EstadisticasService:
                 ) for row in rows
             ]
 
-    def get_resumen_kpis(self) -> ResumenResponse:
-        hoy = date.today()
-        inicio_mes = hoy.replace(day=1)
-        
+    def get_resumen_kpis(self, desde: date, hasta: date) -> ResumenResponse:
         with self.uow:
-            # Ventas de hoy
-            hoy_data = self.uow.pedidos.get_ventas_periodo(hoy, hoy, 'day')
-            ventas_hoy = hoy_data[0].total_ventas if hoy_data and hoy_data[0].total_ventas else 0
+            # Datos del periodo completo
+            periodo_data = self.uow.pedidos.get_ventas_periodo(desde, hasta, 'day')
+            ingresos_totales = sum(row.total_ventas for row in periodo_data) if periodo_data else 0
+            cant_pedidos = sum(row.cantidad_pedidos for row in periodo_data) if periodo_data else 0
             
-            # Ingresos del mes y ticket promedio
-            mes_data = self.uow.pedidos.get_ventas_periodo(inicio_mes, hoy, 'month')
-            ingresos_mes = mes_data[0].total_ventas if mes_data and mes_data[0].total_ventas else 0
-            cant_mes = mes_data[0].cantidad_pedidos if mes_data and mes_data[0].cantidad_pedidos else 0
-            ticket_promedio = (ingresos_mes / cant_mes) if cant_mes > 0 else 0
+            ticket_promedio = (ingresos_totales / cant_pedidos) if cant_pedidos > 0 else 0
             
-            # Pedidos activos (Todos menos ENTREGADO y CANCELADO)
-            estados_data = self.uow.pedidos.get_pedidos_por_estado()
+            # Pedidos activos (Todos menos ENTREGADO y CANCELADO) en ese periodo
+            estados_data = self.uow.pedidos.get_pedidos_por_estado(desde, hasta)
             pedidos_activos = sum(row.cantidad for row in estados_data if row.estado_codigo not in ['ENTREGADO', 'CANCELADO'])
             
             return ResumenResponse(
-                ventas_hoy=ventas_hoy,
+                ventas_hoy=ingresos_totales,
                 ticket_promedio=ticket_promedio,
                 pedidos_activos=pedidos_activos,
-                ingresos_mes=ingresos_mes
+                ingresos_mes=ingresos_totales
             )
