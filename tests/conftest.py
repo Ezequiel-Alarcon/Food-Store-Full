@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.database import get_session
 from app.core.security import hash_password
 from main import app
-from app.modules.dominio_1.usuario.models import Usuario
+from app.modules.usuarios.models import Usuario
 
 # ---------------------------------------------------------------------------
 # PARCHE PARA SQLITE (ARRAY no soportado)
@@ -116,7 +116,7 @@ def _create_test_admin(session: Session) -> None:
     # Importante: Como en Food Store el RBAC lo manejamos con roles de muchos a muchos,
     # debemos asociar el rol ADMIN si hiciera falta. Pero si la app asume
     # roles por tabla relacional, lo creamos manualmente aquí.
-    from app.modules.dominio_1.usuario.models import Rol
+    from app.modules.usuarios.models import Rol
     roles_necesarios = [
         {"codigo": "ADMIN",   "nombre": "Administrador",    "descripcion": "Acceso total sin restricciones"},
         {"codigo": "STOCK",   "nombre": "Gestor de Stock",   "descripcion": "Actualiza stock y disponible"},
@@ -139,7 +139,7 @@ def _create_test_admin(session: Session) -> None:
     session.commit()
 
     # Seed Estados
-    from app.modules.dominio_3.EstadoPedido.models import EstadoPedido
+    from app.modules.estados_pedido.models import EstadoPedido
     estados = [
         {"codigo": "PENDIENTE", "descripcion": "Pendiente", "orden": 1, "es_terminal": False},
         {"codigo": "CONFIRMADO", "descripcion": "Confirmado", "orden": 2, "es_terminal": False},
@@ -152,7 +152,7 @@ def _create_test_admin(session: Session) -> None:
             session.add(EstadoPedido(**st_data))
 
     # Seed FormaPago
-    from app.modules.dominio_3.FormaPago.models import FormaPago
+    from app.modules.formas_pago.models import FormaPago
     fp_data = {"codigo": "EFECTIVO", "descripcion": "Efectivo", "habilitado": True}
     if not session.exec(select(FormaPago).where(FormaPago.codigo == fp_data["codigo"])).first():
         session.add(FormaPago(**fp_data))
@@ -218,7 +218,7 @@ def user_auth_headers_fixture(client: TestClient, normal_user: dict, normal_user
 # Fixtures para Pedidos y Productos para ahorrar código en tests
 @pytest.fixture(name="producto_db")
 def producto_db_fixture(session: Session):
-    from app.modules.dominio_2.producto.models import Producto
+    from app.modules.productos.models import Producto
     producto = Producto(
         nombre="Hamb. Test",
         precio_base="1500.00",
@@ -232,8 +232,8 @@ def producto_db_fixture(session: Session):
 
 @pytest.fixture(name="pedido_db")
 def pedido_db_fixture(session: Session, normal_user: dict, producto_db):
-    from app.modules.dominio_3.Pedido.models import Pedido
-    from app.modules.dominio_3.DetallePedido.models import DetallePedido
+    from app.modules.pedidos.models import Pedido
+    from app.modules.detalles_pedido.models import DetallePedido
     
     pedido = Pedido(
         usuario_id=normal_user["id"],

@@ -26,22 +26,20 @@ El proyecto sigue una **arquitectura limpia (Clean Architecture)** organizada po
 app/
 ├── core/                   # Configuración compartida
 │   └── database.py         # Conexión a PostgreSQL
-├── modules/                # Módulos por dominio
-│   ├── dominio_1/           # Gestión de usuarios
-│   │   ├── usuario/
-│   │   └── direccion_entrega/
-│   ├── dominio_2/          # Gestión de productos
-│   │   ├── categoria/
-│   │   ├── ingrediente/
-│   │   ├── producto/
-│   │   └── UnidadMedida/
-│   └── dominio_3/          # Gestión de pedidos
-│       ├── DetallePedido/
-│       ├── EstadoPedido/
-│       ├── FormaPago/
-│       ├── HistorialEstadoPedido/
-│       ├── Pago/
-│       └── Pedido/
+├── modules/                # Módulos feature-first
+│   ├── usuarios/            # Gestión de usuarios
+│   ├── direcciones_entrega/ # Direcciones de entrega
+│   ├── categorias/          # Gestión de categorías
+│   ├── productos/          # Gestión de productos
+│   ├── ingredientes/       # Gestión de ingredientes
+│   ├── unidades_medida/    # Unidades de medida
+│   ├── pedidos/            # Gestión de pedidos
+│   ├── pagos/             # Gestión de pagos
+│   ├── detalles_pedido/   # Detalles de pedido
+│   ├── estados_pedido/    # Estados de pedido
+│   ├── formas_pago/       # Formas de pago
+│   ├── historiales_estado_pedido/ # Historial de estados
+│   └── estadisticas/       # Estadísticas
 └── utils/                  # Utilidades compartidas
     └── errores.py          # Manejo centralizado de errores
 ```
