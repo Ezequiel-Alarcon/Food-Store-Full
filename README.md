@@ -4,6 +4,9 @@
 
 ---
 
+Video link https://drive.google.com/file/d/1TN4jfbk-sBAEybgjCK4OUvrTVEcnvxwF/view?usp=sharing
+
+--
 ## Stack tecnológico
 
 | Tecnología | Propósito |
