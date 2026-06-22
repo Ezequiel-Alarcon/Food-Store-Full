@@ -22,8 +22,11 @@ class TestEstadisticasResumen:
         session.add(p1)
         session.add(p2)
         session.commit()
+        
+        session.refresh(p1)
+        hoy = p1.created_at.date().isoformat()
 
-        response = client.get("/api/v1/estadisticas/resumen",
+        response = client.get(f"/api/v1/estadisticas/resumen?desde={hoy}&hasta={hoy}",
                                 headers=admin_auth_headers)
         assert response.status_code == 200
         data = response.json()
@@ -43,7 +46,7 @@ class TestEstadisticasIngresos:
         session.add(pago)
         session.commit()
 
-        hoy = date.today().isoformat()
+        hoy = pedido_db.created_at.date().isoformat()
         response = client.get(
             f"/api/v1/estadisticas/ingresos?desde={hoy}&hasta={hoy}", headers=admin_auth_headers)
 
@@ -59,7 +62,7 @@ class TestEstadisticasProductosTop:
     """GET /api/v1/estadisticas/productos-top"""
 
     def test_productos_top_limit(self, client: TestClient, session: Session, admin_auth_headers: dict, pedido_db):
-        hoy = date.today().isoformat()
+        hoy = pedido_db.created_at.date().isoformat()
         response = client.get(
             f"/api/v1/estadisticas/productos-top?desde={hoy}&hasta={hoy}&limit=5", headers=admin_auth_headers)
         assert response.status_code == 200

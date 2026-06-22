@@ -1,6 +1,7 @@
 from decimal import Decimal
 from fastapi import HTTPException
 from app.modules.detalles_pedido.models import DetallePedido
+from app.core.websocket import ConnectionManager
 from app.modules.detalles_pedido.schemas import DetallePedidoRead
 from app.modules.historiales_estado_pedido.models import HistorialEstadoPedido
 from app.modules.historiales_estado_pedido.schemas import HistorialEstadoPedidoRead
