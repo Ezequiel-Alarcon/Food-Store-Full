@@ -280,15 +280,4 @@ async def websocket_pedido_endpoint(
         await manager.disconnect(websocket)
 
 
-# ==============================================================================
-#                             BLOQUE DE PRUEBAS
-# ==============================================================================
-@router.get("/cocina/html-prueba", tags=["Pruebas WS"])
-def get_cocina_dashboard_prueba():
-    import pathlib
-    from fastapi.responses import HTMLResponse
-    html_path = pathlib.Path(__file__).parent.parent.parent.parent / "templates" / "kds.html"
-    if not html_path.exists():
-        return HTMLResponse(f"<h2>Archivo KDS no encontrado en {html_path}</h2>", status_code=404)
-    return HTMLResponse(html_path.read_text(encoding="utf-8"))
-# ==============================================================================
+
