@@ -49,10 +49,6 @@ class PedidoService:
             "ENTREGADO":  set(),
             "CANCELADO":  set(),
         },
-        "COCINA": {
-            "CONFIRMADO": {"EN_PREP"},
-            "EN_PREP":    {"ENTREGADO"},
-        },
         "CLIENT": {
             "PENDIENTE":  {"CANCELADO"},
         },
@@ -173,13 +169,15 @@ class PedidoService:
                 HistorialEstadoPedidoRead.model_validate(evento)
                 for evento in historial
             ]
-
-    def cambiar_estado_pedido(
+    
+    #Queda como una función asincrona 
+    async def cambiar_estado_pedido(
         self,
         pedido_id: int,
         data: PedidoCambioEstado,
         usuario_id: int,
         rol: str,
+        ws_manager: ConnectionManager | None = None,
     ) -> PedidoReadFull:
         with self._uow as uow:
             pedido = self._obtener_pedido_o_404(uow, pedido_id)
@@ -229,12 +227,28 @@ class PedidoService:
                 usuario_id=usuario_id,
                 motivo=data.motivo,
             )
+
+            resultado = self._armar_pedido_read_full(uow, pedido)
+
+            EVENTOS_WS = {
+                "CONFIRMADO": "PEDIDO_CONFIRMADO",
+                "EN_PREP": "PEDIDO_EN_PREPARACION",
+                "CANCELADO": "PEDIDO_CANCELADO",
+            }
+            evento = EVENTOS_WS.get(resultado.estado_codigo, "ESTADO_ACTUALIZADO")
             
-            # TODO: Según la rúbrica (RN-06), acá se debe invocar a WSManager.broadcast_pedido() o send_to_room()
-            # DESPUÉS del bloque UoW (fuera del context manager) para notificar el cambio de estado a los clientes/admin conectados.
-            # Se debe importar get_connection_manager de app.core.websocket.
-            
-            return self._armar_pedido_read_full(uow, pedido)
+        if ws_manager:
+            await ws_manager.send_to_room(
+                "role:KDS",
+                evento,
+                resultado.model_dump(mode="json"),
+            )
+            await ws_manager.send_to_room(
+                f"pedido:{pedido_id}",
+                evento,
+                resultado.model_dump(mode="json"),
+            )
+        return resultado
 
     def _obtener_pedido_o_404(self, uow, pedido_id: int) -> Pedido:
         pedido = uow.pedidos.get_by_id(pedido_id)
