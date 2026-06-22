@@ -131,7 +131,7 @@ class PaymentService:
                 public_key=settings.MP_PUBLIC_KEY,
             )
 
-    def procesar_webhook(self, data: dict, query_params: Optional[dict] = None) -> dict:
+    async def procesar_webhook(self, data: dict, query_params: Optional[dict] = None) -> dict:
         if not data and query_params:
             data = query_params
 
@@ -201,7 +201,7 @@ class PaymentService:
                         pedido = uow._session.get(Pedido, pago.pedido_id)
                         user_id_to_log = pedido.usuario_id if pedido else None
 
-                        resultado_pedido = pedido_svc.cambiar_estado_pedido(
+                        resultado_pedido = await pedido_svc.cambiar_estado_pedido(
                             pedido_id=pago.pedido_id,
                             data=PedidoCambioEstado(
                                 estado_hacia="CONFIRMADO",

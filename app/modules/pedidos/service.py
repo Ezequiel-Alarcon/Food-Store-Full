@@ -52,6 +52,7 @@ class PedidoService:
         },
         "CLIENT": {
             "PENDIENTE":  {"CANCELADO"},
+            "CONFIRMADO": {"CANCELADO"},
         },
     }
     

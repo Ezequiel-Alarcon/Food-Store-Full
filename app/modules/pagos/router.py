@@ -51,7 +51,7 @@ async def webhook(
         else:
             data = dict(await request.form())
             
-        result = svc.procesar_webhook(data, query_params=query_params)
+        result = await svc.procesar_webhook(data, query_params=query_params)
         
         # Misma metodología que PedidoRouter: el router dispara el WebSocket
         if result.get("status") == "processed" and "pedido_actualizado" in result:
