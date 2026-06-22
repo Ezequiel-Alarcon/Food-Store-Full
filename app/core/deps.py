@@ -38,8 +38,8 @@ from fastapi.security import OAuth2PasswordBearer  # Manejo estándar de OAuth2 
 
 from app.core.security import decode_access_token  # Función para decodificar JWT
 # from app.core.unit_of_work import UnitOfWork, get_uow       # Patrón Unit of Work para DB
-from app.modules.dominio_1.usuario.unit_of_work import UsuarioUnitOfWork, get_uow # Patrón Unit of Work para DB
-from app.modules.dominio_1.usuario.models import Usuario     # Modelo de dominio Usuario
+from app.modules.usuarios.unit_of_work import UsuarioUnitOfWork, get_uow # Patrón Unit of Work para DB
+from app.modules.usuarios.models import Usuario     # Modelo de dominio Usuario
 
 from fastapi import Request
 

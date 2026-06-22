@@ -44,9 +44,9 @@ class Settings(BaseSettings):
     def rate_limit_auth_per_minute(self) -> int:
         return self.RATE_LIMIT_AUTH_PER_MINUTE
     
-    CLOUDINARY_NAME: str = ""
-    CLOUDINARY_API_KEY: str = ""
-    CLOUDINARY_API_SECRET: str = ""
+    CLOUDINARY_NAME: str
+    CLOUDINARY_API_KEY: str
+    CLOUDINARY_API_SECRET: str
     
     # --- MercadoPago ---
     MP_ACCESS_TOKEN: Optional[str] = None
@@ -55,9 +55,9 @@ class Settings(BaseSettings):
     NGROK_URL: Optional[str] = None
     
     # --- CORS y Frontend ---
-    CORS_ORIGINS: str = "http://localhost:5173"
-    VITE_FRONTEND_URL: str = "http://localhost:5173"
-    VITE_API_URL: str = "http://localhost:8000"
+    CORS_ORIGINS: str
+    VITE_FRONTEND_URL: str
+    VITE_API_URL: str
 
     @model_validator(mode="after")
     def fix_database_url(self):

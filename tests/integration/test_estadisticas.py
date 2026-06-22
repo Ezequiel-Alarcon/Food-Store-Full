@@ -12,7 +12,7 @@ class TestEstadisticasResumen:
     """GET /api/v1/estadisticas/resumen"""
 
     def test_resumen_kpis_excluye_cancelados(self, client: TestClient, session: Session, admin_auth_headers: dict, normal_user: dict, producto_db):
-        from app.modules.dominio_3.Pedido.models import Pedido
+        from app.modules.pedidos.models import Pedido
 
         p1 = Pedido(usuario_id=normal_user["id"], estado_codigo="PENDIENTE", forma_pago_codigo="EFECTIVO",
                     direccion_id=1, subtotal="1000", total="1000", costo_envio="0", descuento="0")
@@ -22,8 +22,11 @@ class TestEstadisticasResumen:
         session.add(p1)
         session.add(p2)
         session.commit()
+        
+        session.refresh(p1)
+        hoy = p1.created_at.date().isoformat()
 
-        response = client.get("/api/v1/estadisticas/resumen",
+        response = client.get(f"/api/v1/estadisticas/resumen?desde={hoy}&hasta={hoy}",
                                 headers=admin_auth_headers)
         assert response.status_code == 200
         data = response.json()
@@ -36,14 +39,14 @@ class TestEstadisticasIngresos:
     """GET /api/v1/estadisticas/ingresos"""
 
     def test_ingresos_solo_cuenta_pagos_aprobados(self, client: TestClient, session: Session, admin_auth_headers: dict, pedido_db):
-        from app.modules.dominio_3.Pago.models import Pago
+        from app.modules.pagos.models import Pago
         pago = Pago(pedido_id=pedido_db.id, transaction_amount="1500",
                     metodo_codigo="MERCADO_PAGO", mp_status="approved",
                     idempotency_key="test-idempotency-key")
         session.add(pago)
         session.commit()
 
-        hoy = date.today().isoformat()
+        hoy = pedido_db.created_at.date().isoformat()
         response = client.get(
             f"/api/v1/estadisticas/ingresos?desde={hoy}&hasta={hoy}", headers=admin_auth_headers)
 
@@ -59,7 +62,7 @@ class TestEstadisticasProductosTop:
     """GET /api/v1/estadisticas/productos-top"""
 
     def test_productos_top_limit(self, client: TestClient, session: Session, admin_auth_headers: dict, pedido_db):
-        hoy = date.today().isoformat()
+        hoy = pedido_db.created_at.date().isoformat()
         response = client.get(
             f"/api/v1/estadisticas/productos-top?desde={hoy}&hasta={hoy}&limit=5", headers=admin_auth_headers)
         assert response.status_code == 200
